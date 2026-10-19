@@ -1,0 +1,12 @@
+# Frontend dependencies and output
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+
+# Environment and local tooling files
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db

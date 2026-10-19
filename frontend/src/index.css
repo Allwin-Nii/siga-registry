@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy-950: #08283a;
+  --color-navy-900: #0b354b;
+  --color-navy-800: #124762;
+  --color-navy-700: #1c5b77;
+  --color-teal-700: #0d766e;
+  --color-teal-600: #12847a;
+  --color-teal-100: #dff4f0;
+  --color-sand-50: #f8faf9;
+  --font-sans: "Aptos", "Segoe UI", system-ui, sans-serif;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { @apply m-0 min-w-80 bg-sand-50 font-sans text-slate-800 antialiased; }
+  button, input, select, textarea { font: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { @apply outline-3 outline-offset-2 outline-teal-700; }
+}
