@@ -69,7 +69,7 @@ export function validateEstablishmentInput(
   const duplicateName = existingEstablishments.some((establishment) =>
     establishment.id !== excludeEstablishmentId && normalizeName(establishment.name) === normalizeName(name),
   )
-  if (name && duplicateName) errors.name = 'An establishment with this name already exists in the prototype registry.'
+  if (name && duplicateName) errors.name = 'An establishment with this name already exists in the registry.'
 
   return errors
 }

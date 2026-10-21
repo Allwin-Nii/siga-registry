@@ -1,11 +1,14 @@
 import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { EstablishmentCard } from '../components/EstablishmentCard'
 import { useRegistry } from '../state/useRegistry'
 
 export function LandingPage() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
-  const { categories, establishments } = useRegistry()
+  const { categories, getPublishedEstablishments } = useRegistry()
+  const publishedEstablishments = getPublishedEstablishments()
+  const featuredEstablishments = publishedEstablishments.slice(0, 3)
   const submitSearch = (event: FormEvent) => {
     event.preventDefault()
     const value = query.trim()
@@ -15,41 +18,41 @@ export function LandingPage() {
   return (
     <>
       <section className="overflow-hidden bg-navy-950">
-        <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.2fr_0.8fr] lg:px-8 lg:py-28">
-          <div>
-            <p className="text-sm font-black tracking-[0.18em] text-teal-100 uppercase">A clearer reference point</p>
-            <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">Find and maintain establishment information with confidence.</h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">SIGA Registry is a frontend prototype for a searchable establishment directory and staff review workflow. Every result below is fictional sample data.</p>
+        <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.2fr_0.8fr] lg:px-8 lg:py-24">
+          <div className="relative z-10">
+            <p className="text-sm font-black tracking-[0.18em] text-teal-100 uppercase">Establishment information</p>
+            <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">Specified Entities Registry</h1>
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">Explore information on State-Owned Enterprises, Joint Venture Companies, and Other State Entities in Ghana.</p>
             <form onSubmit={submitSearch} className="mt-8 max-w-2xl rounded-2xl bg-white p-2 shadow-xl">
               <label className="sr-only" htmlFor="hero-search">Search establishment names</label>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <input id="hero-search" value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 rounded-xl border-0 px-4 py-3.5 text-slate-900 outline-none ring-1 ring-slate-300 placeholder:text-slate-400 focus:ring-3 focus:ring-teal-700" placeholder="Search establishment names" />
-                <button className="rounded-xl bg-teal-700 px-6 py-3.5 font-bold text-white hover:bg-teal-600">Search directory</button>
-              </div>
+              <input id="hero-search" value={query} onChange={(event) => setQuery(event.target.value)} className="w-full rounded-xl border-0 px-4 py-3.5 text-slate-900 outline-none ring-1 ring-slate-300 placeholder:text-slate-400 focus:ring-3 focus:ring-teal-700" placeholder="Search establishment names" />
             </form>
-            <button onClick={() => navigate('/directory')} className="mt-5 text-sm font-bold text-teal-100 underline decoration-teal-400 underline-offset-4 hover:text-white">Browse Establishments →</button>
+            <button onClick={() => navigate('/directory')} className="mt-5 inline-flex items-center rounded-lg bg-teal-700 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-teal-600">Browse Establishments <span className="ml-2" aria-hidden="true">→</span></button>
           </div>
-          <div className="relative rounded-3xl border border-white/10 bg-linear-to-br from-navy-800 to-navy-950 p-6 shadow-2xl sm:p-8">
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-linear-to-br from-navy-800 to-navy-950 p-6 shadow-2xl sm:p-8">
             <div className="absolute -right-10 -top-10 size-32 rounded-full bg-teal-600/20 blur-2xl" />
-            <p className="text-sm font-bold text-teal-100">Prototype overview</p>
-            <dl className="mt-7 space-y-6">
-              <div className="border-b border-white/10 pb-6"><dt className="text-3xl font-black text-white">{establishments.length}</dt><dd className="mt-1 text-sm text-slate-300">Fictional demonstration records</dd></div>
-              <div className="border-b border-white/10 pb-6"><dt className="text-3xl font-black text-white">{categories.length}</dt><dd className="mt-1 text-sm text-slate-300">Establishment categories</dd></div>
-              <div><dt className="text-3xl font-black text-white">0</dt><dd className="mt-1 text-sm text-slate-300">Live integrations or stored submissions</dd></div>
+            <div className="absolute -bottom-16 -left-12 size-40 rounded-full border border-teal-300/15" />
+            <p className="relative text-sm font-bold text-teal-100">Registry overview</p>
+            <dl className="relative mt-7 space-y-6">
+              <div className="border-b border-white/10 pb-6"><dt className="text-3xl font-black text-white">{publishedEstablishments.length}</dt><dd className="mt-1 text-sm text-slate-300">Published establishment profiles</dd></div>
+              <div className="border-b border-white/10 pb-6"><dt className="text-3xl font-black text-white">{categories.length}</dt><dd className="mt-1 text-sm text-slate-300">Entity categories</dd></div>
+              <div><dt className="text-3xl font-black text-white">6</dt><dd className="mt-1 text-sm text-slate-300">Public information fields per profile</dd></div>
             </dl>
           </div>
         </div>
       </section>
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-          <div><p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Browse by category</p><h2 className="mt-2 text-3xl font-black tracking-tight text-navy-950">Explore the registry structure.</h2></div>
-          <button onClick={() => navigate('/directory')} className="text-left text-sm font-bold text-teal-700 hover:text-teal-600">Explore the fictional directory →</button>
-        </div>
+        <div><p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Browse by category</p><h2 className="mt-2 text-3xl font-black tracking-tight text-navy-950">Find establishments by category.</h2></div>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          {categories.map((category) => <button key={category.id} onClick={() => navigate(`/directory?category=${category.id}`)} className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-teal-700/35 hover:shadow-md"><span className="grid size-9 place-items-center rounded-lg bg-teal-100 font-black text-teal-700">{category.name}</span><h3 className="mt-5 font-black text-navy-950">{category.description}</h3><p className="mt-2 text-sm leading-6 text-slate-600">Browse fictional {category.name} establishment records.</p></button>)}
+          {categories.map((category) => <button key={category.id} onClick={() => navigate(`/directory?category=${category.id}`)} className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-teal-700/35 hover:shadow-md"><span className="grid size-10 place-items-center rounded-lg bg-teal-100 font-black text-teal-800">{category.name}</span><h3 className="mt-5 font-black text-navy-950">{category.description}</h3><span className="mt-5 inline-flex text-sm font-bold text-teal-700">View category <span className="ml-2" aria-hidden="true">→</span></span></button>)}
         </div>
       </section>
-      <section className="border-y border-slate-200 bg-white"><div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-3 lg:px-8"><div><h2 className="text-2xl font-black tracking-tight text-navy-950">Built for the work around a record.</h2><p className="mt-3 leading-7 text-slate-600">Move from public reference to staff maintenance and review without representing a production workflow.</p></div>{[['Discover', 'Search fictional establishment records by name or category.'], ['Maintain', 'Create or edit a draft record locally before submitting it for review.'], ['Review', 'Approve, request changes, or reject a fictional pending submission.']].map(([title, body]) => <div key={title} className="rounded-xl border-l-4 border-teal-700 pl-5"><h3 className="font-black text-navy-950">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{body}</p></div>)}</div></section>
+      <section className="border-y border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <div><p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Featured profiles</p><h2 className="mt-2 text-3xl font-black tracking-tight text-navy-950">Featured establishments</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Explore a selection of published establishment profiles from across the registry.</p></div>
+          <div className="mt-8 grid gap-5 md:grid-cols-3">{featuredEstablishments.map((establishment) => <EstablishmentCard key={establishment.id} establishment={establishment} />)}</div>
+        </div>
+      </section>
     </>
   )
 }

@@ -1,12 +1,12 @@
-# SIGA Registry frontend foundation
+# SIGA Registry frontend
 
-This is Milestone 1 of a frontend-only prototype for an establishment management and reference system. It uses React, TypeScript, Vite, React Router, and Tailwind CSS.
+This React, TypeScript, Vite, React Router, and Tailwind CSS frontend presents an independent demonstration of a searchable establishment-information directory and an in-memory staff workflow.
 
-## Important prototype limits
+## Demonstration limits
 
-Every establishment, person, contact detail, category, status, and date shown in this UI is fictional sample data. Authentication, role enforcement, review decisions, uploads, saving, and persistence are deliberately simulated only. This app must not be treated as a secure or production registry until a backend is designed and implemented.
+The seeded establishment profiles use a selected set of publicly sourced names, categories, descriptions, websites, and business contacts. They do **not** constitute a complete, certified, or official SIGA directory, and this application is not an official SIGA service. The category and detail-source register is in [../docs/entity-sources.md](../docs/entity-sources.md).
 
-The registry uses shared in-memory React state. It keeps prototype changes consistent while the app remains open, but resets to the original fictional seed data on browser refresh. It does not use an API, database, `localStorage`, or `sessionStorage`.
+Authentication, role enforcement, review decisions, uploads, saving, and persistence remain simulated. The shared React state resets to the original seed data after a browser refresh. This frontend does not use an API, database, `localStorage`, or `sessionStorage`.
 
 ## Run locally
 
@@ -21,6 +21,7 @@ The development server prints its local URL (normally `http://localhost:5173`).
 ## Quality checks
 
 ```bash
+npm run lint
 npm test
 npm run build
 ```
@@ -28,16 +29,17 @@ npm run build
 ## Project layout
 
 - `src/pages/` — routed public, staff, administrator, and sign-in views.
-- `src/components/` — shared layout, cards, badges, and simulation notice components.
-- `src/data/mockData.ts` — clearly fictional records and configurable category options.
-- `src/test/` — basic route and directory UI tests.
+- `src/components/` — shared layout, cards, badges, and the demonstration notice.
+- `src/data/mockData.ts` — selected, publicly sourced seed profiles and category options.
+- `src/state/` — shared in-memory registry and workflow state.
+- `src/test/` — route, directory, workflow, and validation coverage.
 
 ## Routes
 
 - `/` — public landing page
-- `/directory` — searchable and filterable fictional directory
-- `/establishments/:slug` — fictional establishment detail page
+- `/directory` — searchable and filterable establishment directory
+- `/establishments/:slug` — public establishment detail page
 - `/staff/dashboard` — simulated staff overview
 - `/staff/records/new` and `/staff/records/:recordId/edit` — validated local form UI
-- `/admin/review` — simulated revision review
-- `/sign-in` — non-functional authentication UI
+- `/admin/review` — simulated review workflow
+- `/sign-in` — non-functional sign-in UI
