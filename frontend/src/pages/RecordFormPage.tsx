@@ -1,31 +1,64 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { SimulationNotice } from '../components/SimulationNotice'
-import { categoryOptions, dashboardRecords } from '../data/mockData'
+import { useRegistry } from '../state/useRegistry'
+import type { EstablishmentFormInput, EstablishmentValidationErrors } from '../types'
+import { toEstablishmentFormInput } from '../validation/establishmentValidation'
 
-type FormValues = { name: string; categoryId: string; location: string; email: string; description: string }
-type FormErrors = Partial<Record<keyof FormValues, string>>
-const initialValues: FormValues = { name: '', categoryId: '', location: '', email: '', description: '' }
+type SubmissionIntent = 'draft' | 'submit'
 
-const validate = (values: FormValues): FormErrors => ({
-  ...(values.name.trim().length < 3 ? { name: 'Enter at least 3 characters for the establishment name.' } : {}),
-  ...(!values.categoryId ? { categoryId: 'Choose a configurable sample category.' } : {}),
-  ...(values.location.trim().length < 3 ? { location: 'Enter an illustrative location.' } : {}),
-  ...(!/^\S+@\S+\.\S+$/.test(values.email) ? { email: 'Enter a valid example email address.' } : {}),
-  ...(values.description.trim().length < 20 ? { description: 'Provide at least 20 characters of descriptive text.' } : {}),
-})
+const initialValues: EstablishmentFormInput = { name: '', categoryId: '', website: '', email: '', contactNumber: '', summary: '' }
 
 export function RecordFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const { recordId } = useParams()
   const navigate = useNavigate()
-  const existing = dashboardRecords.find((record) => record.id === recordId)
-  const [values, setValues] = useState<FormValues>(() => mode === 'edit' && existing ? { name: existing.name, categoryId: existing.categoryId, location: 'Example location', email: 'editor@example.test', description: 'This is an illustrative description for a fictional sample record in the SIGA Registry prototype.' } : initialValues)
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [submitted, setSubmitted] = useState(false)
-  const title = mode === 'create' ? 'Create a sample record' : `Edit ${existing?.name ?? 'sample record'}`
-  const setField = (key: keyof FormValues, value: string) => { setValues((current) => ({ ...current, [key]: value })); setErrors((current) => ({ ...current, [key]: undefined })); setSubmitted(false) }
-  const onSubmit = (event: FormEvent) => { event.preventDefault(); const nextErrors = validate(values); setErrors(nextErrors); if (Object.keys(nextErrors).length === 0) setSubmitted(true) }
+  const { categories, findEstablishmentById, createEstablishment, updateEstablishment, submitEstablishment } = useRegistry()
+  const existing = mode === 'edit' && recordId ? findEstablishmentById(recordId) : undefined
+  const [values, setValues] = useState<EstablishmentFormInput>(() => existing ? toEstablishmentFormInput(existing) : initialValues)
+  const [errors, setErrors] = useState<EstablishmentValidationErrors>({})
+  const [feedback, setFeedback] = useState('')
+  const [intent, setIntent] = useState<SubmissionIntent>('draft')
+  const title = mode === 'create' ? 'Create an establishment' : `Edit ${existing?.name ?? 'establishment'}`
+  const setField = (key: keyof EstablishmentFormInput, value: string) => {
+    setValues((current) => ({ ...current, [key]: value }))
+    setErrors((current) => ({ ...current, [key]: undefined }))
+    setFeedback('')
+  }
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault()
+    setFeedback('')
+    const result = mode === 'create'
+      ? createEstablishment(values, intent === 'submit')
+      : updateEstablishment(recordId ?? '', values)
+    if (!result.ok) {
+      setErrors(result.errors)
+      return
+    }
+    if (mode === 'edit' && intent === 'submit') {
+      const workflowResult = submitEstablishment(result.establishment.id)
+      if (!workflowResult.ok) {
+        setFeedback(workflowResult.error)
+        return
+      }
+    }
+    setErrors({})
+    setFeedback(intent === 'submit' ? 'Establishment submitted for review.' : 'Draft saved in the shared prototype registry.')
+  }
   const fieldClass = (hasError: boolean) => `mt-2 w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 ${hasError ? 'border-rose-600 bg-rose-50' : 'border-slate-300 bg-white'} focus:border-teal-700`
+  const errorId = (field: keyof EstablishmentFormInput) => `${field}-error`
 
-  return <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6"><Link to="/staff/dashboard" className="text-sm font-bold text-teal-700 hover:text-teal-600">← Back to staff workspace</Link><div className="mt-6"><p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Staff form · simulated</p><h1 className="mt-2 text-3xl font-black tracking-tight text-navy-950 sm:text-4xl">{title}</h1><p className="mt-3 leading-7 text-slate-600">Client-side validation demonstrates the future editing flow. Successful submissions are displayed locally and are never saved.</p></div><div className="mt-8"><SimulationNotice /></div>{submitted && <div className="mt-6 rounded-xl border border-teal-700/20 bg-teal-100 p-4 text-sm text-teal-700" role="status"><strong>Validation passed.</strong> This sample record would be saved or submitted for review after a real backend and permissions are available.</div>}<form noValidate onSubmit={onSubmit} className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"><div className="grid gap-6 sm:grid-cols-2"><div className="sm:col-span-2"><label className="text-sm font-bold text-slate-700" htmlFor="record-name">Establishment name <span className="text-rose-700">*</span></label><input id="record-name" value={values.name} onChange={(event) => setField('name', event.target.value)} aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? 'name-error' : undefined} className={fieldClass(Boolean(errors.name))} placeholder="Fictional sample name" />{errors.name && <p id="name-error" className="mt-1 text-sm text-rose-700">{errors.name}</p>}</div><div><label className="text-sm font-bold text-slate-700" htmlFor="record-category">Configurable category <span className="text-rose-700">*</span></label><select id="record-category" value={values.categoryId} onChange={(event) => setField('categoryId', event.target.value)} aria-invalid={Boolean(errors.categoryId)} className={fieldClass(Boolean(errors.categoryId))}><option value="">Select a sample category</option>{categoryOptions.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>{errors.categoryId && <p className="mt-1 text-sm text-rose-700">{errors.categoryId}</p>}</div><div><label className="text-sm font-bold text-slate-700" htmlFor="record-location">Illustrative location <span className="text-rose-700">*</span></label><input id="record-location" value={values.location} onChange={(event) => setField('location', event.target.value)} aria-invalid={Boolean(errors.location)} className={fieldClass(Boolean(errors.location))} placeholder="Example district" />{errors.location && <p className="mt-1 text-sm text-rose-700">{errors.location}</p>}</div><div className="sm:col-span-2"><label className="text-sm font-bold text-slate-700" htmlFor="record-email">Example contact email <span className="text-rose-700">*</span></label><input id="record-email" type="email" value={values.email} onChange={(event) => setField('email', event.target.value)} aria-invalid={Boolean(errors.email)} className={fieldClass(Boolean(errors.email))} placeholder="name@example.test" />{errors.email && <p className="mt-1 text-sm text-rose-700">{errors.email}</p>}</div><div className="sm:col-span-2"><label className="text-sm font-bold text-slate-700" htmlFor="record-description">Description <span className="text-rose-700">*</span></label><textarea id="record-description" rows={6} value={values.description} onChange={(event) => setField('description', event.target.value)} aria-invalid={Boolean(errors.description)} className={fieldClass(Boolean(errors.description))} placeholder="Describe this fictional sample establishment…" />{errors.description && <p className="mt-1 text-sm text-rose-700">{errors.description}</p>}</div></div><div className="mt-8 flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-6"><button type="button" onClick={() => navigate('/staff/dashboard')} className="rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Cancel</button><button type="submit" className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-teal-600">{mode === 'create' ? 'Validate sample record' : 'Validate sample changes'}</button></div></form></div>
+  if (mode === 'edit' && !existing) {
+    return <div className="mx-auto max-w-3xl px-4 py-20 text-center"><h1 className="text-3xl font-black text-navy-950">Establishment not found</h1><p className="mt-3 text-slate-600">This record is unavailable in the prototype registry.</p><Link to="/staff/dashboard" className="mt-6 inline-flex rounded-lg bg-navy-950 px-4 py-2.5 text-sm font-bold text-white">Back to staff workspace</Link></div>
+  }
+
+  return <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6"><Link to="/staff/dashboard" className="text-sm font-bold text-teal-700 hover:text-teal-600">← Back to staff workspace</Link><div className="mt-6"><p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Staff form · prototype</p><h1 className="mt-2 text-3xl font-black tracking-tight text-navy-950 sm:text-4xl">{title}</h1><p className="mt-3 leading-7 text-slate-600">Only these six establishment fields are collected. Drafts and review submissions use shared in-memory state and reset on refresh.</p></div><div className="mt-8"><SimulationNotice /></div>{feedback && <div className="mt-6 rounded-xl border border-teal-700/20 bg-teal-100 p-4 text-sm text-teal-700" role="status">{feedback}</div>}
+    <form noValidate onSubmit={onSubmit} className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"><div className="grid gap-6 sm:grid-cols-2">
+      <div className="sm:col-span-2"><label className="text-sm font-bold text-slate-700" htmlFor="record-name">Name <span className="text-rose-700">*</span></label><input id="record-name" value={values.name} onChange={(event) => setField('name', event.target.value)} aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? errorId('name') : undefined} className={fieldClass(Boolean(errors.name))} placeholder="Fictional establishment name" />{errors.name && <p id={errorId('name')} className="mt-1 text-sm text-rose-700">{errors.name}</p>}</div>
+      <div><label className="text-sm font-bold text-slate-700" htmlFor="record-website">Website URL</label><input id="record-website" type="url" value={values.website} onChange={(event) => setField('website', event.target.value)} aria-invalid={Boolean(errors.website)} aria-describedby={errors.website ? errorId('website') : undefined} className={fieldClass(Boolean(errors.website))} placeholder="https://example.test" />{errors.website && <p id={errorId('website')} className="mt-1 text-sm text-rose-700">{errors.website}</p>}</div>
+      <div><label className="text-sm font-bold text-slate-700" htmlFor="record-category">Category <span className="text-rose-700">*</span></label><select id="record-category" value={values.categoryId} onChange={(event) => setField('categoryId', event.target.value)} aria-invalid={Boolean(errors.categoryId)} aria-describedby={errors.categoryId ? errorId('categoryId') : undefined} className={fieldClass(Boolean(errors.categoryId))}><option value="">Select a category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name} — {category.description}</option>)}</select>{errors.categoryId && <p id={errorId('categoryId')} className="mt-1 text-sm text-rose-700">{errors.categoryId}</p>}</div>
+      <div><label className="text-sm font-bold text-slate-700" htmlFor="record-email">Email</label><input id="record-email" type="email" value={values.email} onChange={(event) => setField('email', event.target.value)} aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? errorId('email') : undefined} className={fieldClass(Boolean(errors.email))} placeholder="name@example.test" />{errors.email && <p id={errorId('email')} className="mt-1 text-sm text-rose-700">{errors.email}</p>}</div>
+      <div><label className="text-sm font-bold text-slate-700" htmlFor="record-contact-number">Contact Number</label><input id="record-contact-number" type="tel" value={values.contactNumber} onChange={(event) => setField('contactNumber', event.target.value)} aria-invalid={Boolean(errors.contactNumber)} aria-describedby={errors.contactNumber ? errorId('contactNumber') : undefined} className={fieldClass(Boolean(errors.contactNumber))} placeholder="+000 000 0000" />{errors.contactNumber && <p id={errorId('contactNumber')} className="mt-1 text-sm text-rose-700">{errors.contactNumber}</p>}</div>
+      <div className="sm:col-span-2"><label className="text-sm font-bold text-slate-700" htmlFor="record-summary">Brief Description <span className="text-rose-700">*</span></label><textarea id="record-summary" rows={6} value={values.summary} onChange={(event) => setField('summary', event.target.value)} aria-invalid={Boolean(errors.summary)} aria-describedby={errors.summary ? errorId('summary') : undefined} className={fieldClass(Boolean(errors.summary))} placeholder="Describe this fictional establishment…" />{errors.summary && <p id={errorId('summary')} className="mt-1 text-sm text-rose-700">{errors.summary}</p>}</div>
+    </div><div className="mt-8 flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-6"><button type="button" onClick={() => navigate('/staff/dashboard')} className="rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Cancel</button><button type="submit" onClick={() => setIntent('draft')} className="rounded-lg border border-navy-900 px-5 py-2.5 text-sm font-bold text-navy-900 hover:bg-navy-950 hover:text-white">Save draft</button><button type="submit" onClick={() => setIntent('submit')} className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-teal-600">Submit for review</button></div></form>
+  </div>
 }

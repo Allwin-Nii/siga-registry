@@ -5,6 +5,7 @@ const statusClasses: Record<RecordStatus, string> = {
   'Pending review': 'bg-amber-50 text-amber-800 ring-amber-200',
   Published: 'bg-teal-100 text-teal-700 ring-teal-200',
   'Changes requested': 'bg-rose-50 text-rose-800 ring-rose-200',
+  Rejected: 'bg-rose-100 text-rose-900 ring-rose-200',
 }
 
 export function Badge({ status }: { status: RecordStatus }) {

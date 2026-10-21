@@ -1,10 +1,31 @@
 import { Link, useParams } from 'react-router-dom'
-import { SectionHeading } from '../components/SectionHeading'
-import { categoryName, establishments } from '../data/mockData'
+import { categoryLabel } from '../data/mockData'
+import { useRegistry } from '../state/useRegistry'
+
+const NotProvided = () => <span className="text-slate-500">Not provided</span>
 
 export function EstablishmentDetailPage() {
   const { slug } = useParams()
-  const establishment = establishments.find((item) => item.slug === slug)
-  if (!establishment) return <div className="mx-auto max-w-3xl px-4 py-20 text-center"><h1 className="text-3xl font-black text-navy-950">Sample record not found</h1><p className="mt-3 text-slate-600">That profile is not part of this fictional prototype directory.</p><Link to="/directory" className="mt-6 inline-flex rounded-lg bg-navy-950 px-4 py-2.5 text-sm font-bold text-white">Return to directory</Link></div>
-  return <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"><Link to="/directory" className="text-sm font-bold text-teal-700 hover:text-teal-600">← Back to sample directory</Link><div className="mt-7 grid gap-10 lg:grid-cols-[1.25fr_0.75fr]"><div><span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-bold text-teal-700">{categoryName(establishment.categoryId)} · sample</span><div className="mt-5"><SectionHeading eyebrow="Fictional establishment profile" title={establishment.name} description={establishment.summary} /></div><section className="mt-10"><h2 className="text-xl font-black text-navy-950">Illustrative services</h2><ul className="mt-4 grid gap-3 sm:grid-cols-2">{establishment.services.map((service) => <li className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700" key={service}>✓ {service}</li>)}</ul></section></div><aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="font-black text-navy-950">Sample contact details</h2><dl className="mt-5 space-y-4 text-sm"><div><dt className="font-bold text-slate-500">Example location</dt><dd className="mt-1 text-slate-700">{establishment.location}<br />{establishment.address}</dd></div><div><dt className="font-bold text-slate-500">Fictional email</dt><dd className="mt-1 text-teal-700">{establishment.email}</dd></div><div><dt className="font-bold text-slate-500">Fictional phone</dt><dd className="mt-1 text-slate-700">{establishment.phone}</dd></div><div><dt className="font-bold text-slate-500">Example website</dt><dd className="mt-1 text-teal-700">{establishment.website}</dd></div></dl><div className="mt-6 border-t border-slate-200 pt-4 text-xs text-slate-500">{establishment.lastUpdated}<br />This is not a real contact record.</div></aside></div></div>
+  const { findEstablishmentBySlug } = useRegistry()
+  const establishment = slug ? findEstablishmentBySlug(slug) : undefined
+
+  if (!establishment || establishment.status !== 'Published') {
+    return <div className="mx-auto max-w-3xl px-4 py-20 text-center"><h1 className="text-3xl font-black text-navy-950">Establishment not found</h1><p className="mt-3 text-slate-600">That profile is unavailable in the public prototype directory.</p><Link to="/directory" className="mt-6 inline-flex rounded-lg bg-navy-950 px-4 py-2.5 text-sm font-bold text-white">Back to Directory</Link></div>
+  }
+
+  return <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+    <Link to="/directory" className="text-sm font-bold text-teal-700 hover:text-teal-600">← Back to Directory</Link>
+    <article className="mt-7 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Fictional establishment profile</p>
+      <h1 className="mt-2 text-3xl font-black tracking-tight text-navy-950 sm:text-4xl">Establishment details</h1>
+      <dl className="mt-8 divide-y divide-slate-200">
+        <div className="py-5 first:pt-0"><dt className="text-sm font-bold text-slate-500">Establishment Name</dt><dd className="mt-1 text-xl font-black text-navy-950">{establishment.name}</dd></div>
+        <div className="py-5"><dt className="text-sm font-bold text-slate-500">Category</dt><dd className="mt-1 text-slate-700">{categoryLabel(establishment.categoryId)}</dd></div>
+        <div className="py-5"><dt className="text-sm font-bold text-slate-500">Brief Description</dt><dd className="mt-1 leading-7 text-slate-700">{establishment.summary}</dd></div>
+        <div className="py-5"><dt className="text-sm font-bold text-slate-500">Website URL</dt><dd className="mt-1 break-words">{establishment.website ? <a href={establishment.website} target="_blank" rel="noopener noreferrer" className="font-bold text-teal-700 hover:text-teal-600">{establishment.website}</a> : <NotProvided />}</dd></div>
+        <div className="py-5"><dt className="text-sm font-bold text-slate-500">Email Address</dt><dd className="mt-1 break-words">{establishment.email ? <a href={`mailto:${establishment.email}`} className="font-bold text-teal-700 hover:text-teal-600">{establishment.email}</a> : <NotProvided />}</dd></div>
+        <div className="py-5 pb-0"><dt className="text-sm font-bold text-slate-500">Contact Number</dt><dd className="mt-1">{establishment.contactNumber ? <a href={`tel:${establishment.contactNumber}`} className="font-bold text-teal-700 hover:text-teal-600">{establishment.contactNumber}</a> : <NotProvided />}</dd></div>
+      </dl>
+    </article>
+  </div>
 }

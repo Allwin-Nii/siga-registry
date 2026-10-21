@@ -6,6 +6,8 @@ This is Milestone 1 of a frontend-only prototype for an establishment management
 
 Every establishment, person, contact detail, category, status, and date shown in this UI is fictional sample data. Authentication, role enforcement, review decisions, uploads, saving, and persistence are deliberately simulated only. This app must not be treated as a secure or production registry until a backend is designed and implemented.
 
+The registry uses shared in-memory React state. It keeps prototype changes consistent while the app remains open, but resets to the original fictional seed data on browser refresh. It does not use an API, database, `localStorage`, or `sessionStorage`.
+
 ## Run locally
 
 ```bash

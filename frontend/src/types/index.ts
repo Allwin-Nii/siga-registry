@@ -1,4 +1,4 @@
-export type RecordStatus = 'Draft' | 'Pending review' | 'Published' | 'Changes requested'
+export type RecordStatus = 'Draft' | 'Pending review' | 'Published' | 'Changes requested' | 'Rejected'
 
 export type Category = {
   id: string
@@ -6,27 +6,33 @@ export type Category = {
   description: string
 }
 
-export type Establishment = {
-  id: string
-  slug: string
+export type EstablishmentInput = {
   name: string
   categoryId: string
-  location: string
-  address: string
   email: string
-  phone: string
+  contactNumber: string
   website: string
   summary: string
-  services: string[]
-  status: RecordStatus
-  lastUpdated: string
 }
 
-export type DashboardRecord = {
+export type EstablishmentFormInput = EstablishmentInput
+
+export type EstablishmentValidationErrors = Partial<Record<keyof EstablishmentInput, string>>
+
+export type ReviewDecision = 'approve' | 'request_changes' | 'reject'
+
+export type WorkflowFeedback = {
+  decision: ReviewDecision
+  message?: string
+  reviewedAt: string
+}
+
+export type Establishment = EstablishmentInput & {
   id: string
-  name: string
-  categoryId: string
-  updated: string
-  owner: string
+  slug: string
   status: RecordStatus
+  lastUpdated: string
+  owner?: string
+  staffUpdated?: string
+  reviewFeedback?: WorkflowFeedback
 }

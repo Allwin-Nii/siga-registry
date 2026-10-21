@@ -1,64 +1,109 @@
-import type { Category, DashboardRecord, Establishment } from '../types'
+import type { Category, Establishment } from '../types'
 
-// Replace these configurable prototype options with real categories when the backend is available.
+// These categories and records are fictional demonstration data for the prototype.
 export const categoryOptions: Category[] = [
-  { id: 'learning', name: 'Learning space', description: 'Example places for workshops and study.' },
-  { id: 'community', name: 'Community hub', description: 'Example places for neighbour-led activity.' },
-  { id: 'research', name: 'Research studio', description: 'Example places for exploratory projects.' },
-  { id: 'service', name: 'Service point', description: 'Example places for practical support.' },
+  { id: 'soe', name: 'SOE', description: 'State-Owned Enterprise' },
+  { id: 'jvc', name: 'JVC', description: 'Joint Venture Company' },
+  { id: 'ose', name: 'OSE', description: 'Other State Entity' },
 ]
 
-export const establishments: Establishment[] = [
+export const getCategoryById = (categoryId: string, categories: readonly Category[] = categoryOptions) =>
+  categories.find((category) => category.id === categoryId)
+
+export const isCategoryId = (categoryId: string, categories: readonly Category[] = categoryOptions) =>
+  Boolean(getCategoryById(categoryId, categories))
+
+export const categoryName = (categoryId: string, categories: readonly Category[] = categoryOptions) =>
+  getCategoryById(categoryId, categories)?.name ?? 'Uncategorised'
+
+export const categoryLabel = (categoryId: string, categories: readonly Category[] = categoryOptions) => {
+  const category = getCategoryById(categoryId, categories)
+  return category ? `${category.name} — ${category.description}` : 'Uncategorised'
+}
+
+export const initialEstablishments: Establishment[] = [
   {
-    id: 'sample-001', slug: 'harborlight-learning-studio', name: 'Harborlight Learning Studio',
-    categoryId: 'learning', location: 'Example Harbour District', address: '42 Sample Street, Example Harbour',
-    email: 'hello@harborlight.example', phone: '+000 000 0142', website: 'harborlight.example',
-    summary: 'A fictional sample record used to demonstrate how a learning-focused establishment might appear in the registry.',
-    services: ['Workshop rooms', 'Study sessions', 'Resource desk'], status: 'Published', lastUpdated: 'Sample update · May 2026',
+    id: 'sample-001',
+    slug: 'aurelia-power-works',
+    name: 'Aurelia Power Works',
+    categoryId: 'soe',
+    website: 'https://aurelia-power.example',
+    email: 'contact@aurelia-power.example',
+    contactNumber: '+000 000 0101',
+    summary: 'A fictional state-owned enterprise sample that demonstrates a public power-services establishment record.',
+    status: 'Published',
+    lastUpdated: 'Sample update · May 2026',
+    owner: 'Sample editor',
+    staffUpdated: 'Illustrative · yesterday',
   },
   {
-    id: 'sample-002', slug: 'cedarline-community-hub', name: 'Cedarline Community Hub',
-    categoryId: 'community', location: 'Example Central Quarter', address: '8 Illustrative Lane, Central Quarter',
-    email: 'team@cedarline.example', phone: '+000 000 0208', website: 'cedarline.example',
-    summary: 'A fictional sample record representing a flexible community meeting and activity space.',
-    services: ['Meeting space', 'Noticeboard', 'Neighbour sessions'], status: 'Published', lastUpdated: 'Sample update · April 2026',
+    id: 'sample-002',
+    slug: 'delta-grid-authority',
+    name: 'Delta Grid Authority',
+    categoryId: 'soe',
+    website: 'https://delta-grid.example',
+    email: 'review@delta-grid.example',
+    contactNumber: '+000 000 0202',
+    summary: 'A fictional state-owned enterprise sample awaiting review for an illustrative grid-coordination profile.',
+    status: 'Pending review',
+    lastUpdated: 'Sample update · April 2026',
+    owner: 'Sample editor',
+    staffUpdated: 'Illustrative · 2 hours ago',
   },
   {
-    id: 'sample-003', slug: 'brightwell-research-studio', name: 'Brightwell Research Studio',
-    categoryId: 'research', location: 'Example Innovation Park', address: '17 Prototype Way, Innovation Park',
-    email: 'contact@brightwell.example', phone: '+000 000 0317', website: 'brightwell.example',
-    summary: 'A fictional sample record illustrating a research-oriented establishment profile.',
-    services: ['Project tables', 'Reference collection', 'Open inquiry hours'], status: 'Published', lastUpdated: 'Sample update · March 2026',
+    id: 'sample-003',
+    slug: 'cobalt-maritime-ventures',
+    name: 'Cobalt Maritime Ventures',
+    categoryId: 'jvc',
+    website: 'https://cobalt-maritime.example',
+    email: 'hello@cobalt-maritime.example',
+    contactNumber: '+000 000 0303',
+    summary: 'A fictional joint venture company sample for a public-facing maritime services reference profile.',
+    status: 'Published',
+    lastUpdated: 'Sample update · March 2026',
+    owner: 'Sample editor',
+    staffUpdated: 'Illustrative · 3 days ago',
   },
   {
-    id: 'sample-004', slug: 'juniper-path-service-point', name: 'Juniper Path Service Point',
-    categoryId: 'service', location: 'Example Riverside', address: '5 Demo Avenue, Riverside',
-    email: 'support@juniperpath.example', phone: '+000 000 0405', website: 'juniperpath.example',
-    summary: 'A fictional sample record showing a practical support and information point.',
-    services: ['Guidance desk', 'Referral information', 'Appointment hours'], status: 'Published', lastUpdated: 'Sample update · February 2026',
+    id: 'sample-004',
+    slug: 'futura-agro-partners',
+    name: 'Futura Agro Partners',
+    categoryId: 'jvc',
+    website: 'https://futura-agro.example',
+    email: 'team@futura-agro.example',
+    contactNumber: '+000 000 0404',
+    summary: 'A fictional joint venture company sample retained as a staff draft for prototype workflow testing.',
+    status: 'Draft',
+    lastUpdated: 'Sample update · February 2026',
+    owner: 'Sample editor',
+    staffUpdated: 'Illustrative · 1 week ago',
   },
   {
-    id: 'sample-005', slug: 'northstar-workshop-house', name: 'Northstar Workshop House',
-    categoryId: 'learning', location: 'Example North End', address: '63 Model Road, North End',
-    email: 'info@northstar.example', phone: '+000 000 0563', website: 'northstar.example',
-    summary: 'A fictional sample record for a hands-on learning and workshop venue.',
-    services: ['Making tables', 'Short courses', 'Equipment lending'], status: 'Published', lastUpdated: 'Sample update · January 2026',
+    id: 'sample-005',
+    slug: 'nkwa-civic-services',
+    name: 'Nkwa Civic Services',
+    categoryId: 'ose',
+    website: '',
+    email: '',
+    contactNumber: '',
+    summary: 'A fictional other state entity sample showing how a published reference profile handles unavailable contact details.',
+    status: 'Published',
+    lastUpdated: 'Sample update · January 2026',
+    owner: 'Sample editor',
+    staffUpdated: 'Illustrative · 4 days ago',
   },
   {
-    id: 'sample-006', slug: 'willowfield-neighbour-centre', name: 'Willowfield Neighbour Centre',
-    categoryId: 'community', location: 'Example Garden Ward', address: '21 Placeholder Close, Garden Ward',
-    email: 'welcome@willowfield.example', phone: '+000 000 0621', website: 'willowfield.example',
-    summary: 'A fictional sample record for a local gathering and programme venue.',
-    services: ['Drop-in hours', 'Small groups', 'Community board'], status: 'Published', lastUpdated: 'Sample update · December 2025',
+    id: 'sample-006',
+    slug: 'harbor-community-initiative',
+    name: 'Harbor Community Initiative',
+    categoryId: 'ose',
+    website: 'https://harbor-community.example',
+    email: 'support@harbor-community.example',
+    contactNumber: '+000 000 0606',
+    summary: 'A fictional other state entity sample with changes requested as part of the staff and review demonstration.',
+    status: 'Changes requested',
+    lastUpdated: 'Sample update · December 2025',
+    owner: 'Sample editor',
+    staffUpdated: 'Illustrative · 1 week ago',
   },
 ]
-
-export const dashboardRecords: DashboardRecord[] = [
-  { id: 'draft-014', name: 'Cedarline Community Hub', categoryId: 'community', updated: 'Illustrative · 2 hours ago', owner: 'Sample editor', status: 'Draft' },
-  { id: 'pending-009', name: 'Harborlight Learning Studio', categoryId: 'learning', updated: 'Illustrative · yesterday', owner: 'Sample editor', status: 'Pending review' },
-  { id: 'published-031', name: 'Brightwell Research Studio', categoryId: 'research', updated: 'Illustrative · 3 days ago', owner: 'Sample editor', status: 'Published' },
-  { id: 'changes-006', name: 'Juniper Path Service Point', categoryId: 'service', updated: 'Illustrative · 1 week ago', owner: 'Sample editor', status: 'Changes requested' },
-]
-
-export const categoryName = (categoryId: string) =>
-  categoryOptions.find((category) => category.id === categoryId)?.name ?? 'Uncategorised sample'
