@@ -18,7 +18,15 @@ export const checkDatabaseConnection = async (pool: Pool) => {
   try {
     await pool.query('SELECT 1')
     return true
-  } catch {
+  } catch (error) {
+    const code =
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error
+        ? String(error.code)
+        : 'UNKNOWN'
+
+    console.error('MySQL connection failed. Error code:', code)
     return false
   }
 }
