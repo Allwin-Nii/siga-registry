@@ -4,16 +4,16 @@ SIGA Registry is an establishment management and reference system under staged d
 
 ## Current milestone
 
-Milestone 1 provides the frontend foundation in [`frontend/`](frontend/README.md): a React, TypeScript, Vite, React Router, and Tailwind CSS prototype with fictional data only.
+Milestone 2 completes the frontend prototype in [`frontend/`](frontend/README.md): a React, TypeScript, Vite, React Router, and Tailwind CSS establishment directory with fictional in-memory data.
 
-The existing `backend/` and `docs/` directories are intentionally untouched. No Django, database, API, authentication, or migration configuration has been added.
+Milestone 3, Step 1 adds the reviewed backend foundation in [`backend/`](backend/README.md): Node.js, Express, TypeScript, MySQL 8 configuration, a health endpoint, tests, and a manual initial-schema migration. It does not add authentication, CRUD endpoints, database execution, or frontend integration.
 
 ## Planned structure
 
 ```text
 siga-registry/
 ├── frontend/   # React + TypeScript + Vite prototype
-├── backend/    # Reserved for later backend work
+├── backend/    # Node.js + Express + MySQL backend foundation
 ├── docs/       # Reserved for documentation
 ├── .git/       # Existing repository
 ├── .gitignore
