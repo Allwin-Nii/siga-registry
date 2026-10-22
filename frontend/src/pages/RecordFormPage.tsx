@@ -41,7 +41,7 @@ export function RecordFormPage({ mode }: { mode: 'create' | 'edit' }) {
       }
     }
     setErrors({})
-    setFeedback(intent === 'submit' ? 'Establishment submitted for review.' : 'Draft saved.')
+    setFeedback(intent === 'submit' ? 'Establishment submitted for review in this local preview.' : 'Draft saved in this local preview.')
   }
   const fieldClass = (hasError: boolean) => `mt-2 w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 ${hasError ? 'border-rose-600 bg-rose-50' : 'border-slate-300 bg-white'} focus:border-teal-700`
   const errorId = (field: keyof EstablishmentFormInput) => `${field}-error`

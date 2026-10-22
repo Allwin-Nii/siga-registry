@@ -1,18 +1,24 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getPublicCategories, getPublicDirectory } from '../api/publicApi'
+import { usePublicApiResource } from '../api/usePublicApiResource'
 import { EstablishmentCard } from '../components/EstablishmentCard'
-import { useRegistry } from '../state/useRegistry'
 
 export function LandingPage() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
-  const { categories, getPublishedEstablishments } = useRegistry()
-  const publishedEstablishments = getPublishedEstablishments()
-  const featuredEstablishments = publishedEstablishments.slice(0, 3)
+  const categories = usePublicApiResource(useCallback(
+    (signal: AbortSignal) => getPublicCategories({ signal }),
+    [],
+  ))
+  const directory = usePublicApiResource(useCallback(
+    (signal: AbortSignal) => getPublicDirectory({ page: 1, pageSize: 3 }, { signal }),
+    [],
+  ))
   const submitSearch = (event: FormEvent) => {
     event.preventDefault()
     const value = query.trim()
-    navigate(`/directory${value ? `?query=${encodeURIComponent(value)}` : ''}`)
+    navigate(`/directory${value ? `?search=${encodeURIComponent(value)}` : ''}`)
   }
 
   return (
@@ -34,8 +40,8 @@ export function LandingPage() {
             <div className="absolute -bottom-16 -left-12 size-40 rounded-full border border-teal-300/15" />
             <p className="relative text-sm font-bold text-teal-100">Registry overview</p>
             <dl className="relative mt-7 space-y-6">
-              <div className="border-b border-white/10 pb-6"><dt className="text-3xl font-black text-white">{publishedEstablishments.length}</dt><dd className="mt-1 text-sm text-slate-300">Published establishment profiles</dd></div>
-              <div className="border-b border-white/10 pb-6"><dt className="text-3xl font-black text-white">{categories.length}</dt><dd className="mt-1 text-sm text-slate-300">Entity categories</dd></div>
+              <div className="border-b border-white/10 pb-6"><dt className="text-3xl font-black text-white">{directory.data ? directory.data.meta.total : directory.error ? '—' : '…'}</dt><dd className="mt-1 text-sm text-slate-300">Published establishment profiles</dd></div>
+              <div className="border-b border-white/10 pb-6"><dt className="text-3xl font-black text-white">{categories.data ? categories.data.length : categories.error ? '—' : '…'}</dt><dd className="mt-1 text-sm text-slate-300">Entity categories</dd></div>
               <div><dt className="text-3xl font-black text-white">6</dt><dd className="mt-1 text-sm text-slate-300">Public information fields per profile</dd></div>
             </dl>
           </div>
@@ -44,13 +50,17 @@ export function LandingPage() {
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div><p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Browse by category</p><h2 className="mt-2 text-3xl font-black tracking-tight text-navy-950">Find establishments by category.</h2></div>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          {categories.map((category) => <button key={category.id} onClick={() => navigate(`/directory?category=${category.id}`)} className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-teal-700/35 hover:shadow-md"><span className="grid size-10 place-items-center rounded-lg bg-teal-100 font-black text-teal-800">{category.name}</span><h3 className="mt-5 font-black text-navy-950">{category.description}</h3><span className="mt-5 inline-flex text-sm font-bold text-teal-700">View category <span className="ml-2" aria-hidden="true">→</span></span></button>)}
+          {categories.loading && <p className="text-slate-600" role="status">Loading entity categories…</p>}
+          {categories.error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5" role="alert"><p className="text-sm text-rose-700">Unable to load categories. {categories.error.message}</p><button type="button" onClick={categories.retry} className="mt-3 text-sm font-bold text-teal-700">Retry categories</button></div>}
+          {categories.data?.map((category) => <button key={category.id} onClick={() => navigate(`/directory?category=${encodeURIComponent(category.code)}`)} className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-teal-700/35 hover:shadow-md"><span className="grid size-10 place-items-center rounded-lg bg-teal-100 font-black text-teal-800">{category.code}</span><h3 className="mt-5 font-black text-navy-950">{category.description}</h3><span className="mt-5 inline-flex text-sm font-bold text-teal-700">View category <span className="ml-2" aria-hidden="true">→</span></span></button>)}
         </div>
       </section>
       <section className="border-y border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <div><p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Featured profiles</p><h2 className="mt-2 text-3xl font-black tracking-tight text-navy-950">Featured establishments</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Explore a selection of published establishment profiles from across the registry.</p></div>
-          <div className="mt-8 grid gap-5 md:grid-cols-3">{featuredEstablishments.map((establishment) => <EstablishmentCard key={establishment.id} establishment={establishment} />)}</div>
+          {directory.loading && <p className="mt-8 text-slate-600" role="status">Loading featured establishments…</p>}
+          {directory.error && <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 p-5" role="alert"><p className="text-sm text-rose-700">Unable to load featured establishments. {directory.error.message}</p><button type="button" onClick={directory.retry} className="mt-3 text-sm font-bold text-teal-700">Retry featured establishments</button></div>}
+          {directory.data && (directory.data.data.length ? <div className="mt-8 grid gap-5 md:grid-cols-3">{directory.data.data.map((establishment) => <EstablishmentCard key={establishment.id} establishment={establishment} />)}</div> : <p className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-slate-600">No published establishments are available yet.</p>)}
         </div>
       </section>
     </>

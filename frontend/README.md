@@ -1,12 +1,12 @@
 # SIGA Registry frontend
 
-This React, TypeScript, Vite, React Router, and Tailwind CSS frontend presents an independent demonstration of a searchable establishment-information directory and an in-memory staff workflow.
+This React, TypeScript, Vite, React Router, and Tailwind CSS frontend presents a public establishment-information directory backed by the read-only SIGA Registry API.
 
 ## Demonstration limits
 
-The seeded establishment profiles use a selected set of publicly sourced names, categories, descriptions, websites, and business contacts. They do **not** constitute a complete, certified, or official SIGA directory, and this application is not an official SIGA service. The category and detail-source register is in [../docs/entity-sources.md](../docs/entity-sources.md).
+The public directory, homepage statistics, category links, and establishment details use only the anonymous published-record API. They do **not** constitute a complete, certified, or official SIGA directory, and this application is not an official SIGA service. The category and detail-source register for the remaining preview fixtures is in [../docs/entity-sources.md](../docs/entity-sources.md).
 
-Authentication, role enforcement, review decisions, uploads, saving, and persistence remain simulated. The shared React state resets to the original seed data after a browser refresh. This frontend does not use an API, database, `localStorage`, or `sessionStorage`.
+The temporary staff and administrator pages remain local previews. Their actions use in-memory demonstration state, reset after refresh, and are not saved to MySQL or reflected in the public directory. Administrator API integration is intentionally out of scope for this milestone.
 
 ## Run locally
 
@@ -15,6 +15,14 @@ cd frontend
 npm install
 npm run dev
 ```
+
+Copy `.env.example` to `.env` to override the local API address when needed:
+
+```bash
+VITE_PUBLIC_API_BASE_URL=http://localhost:3001/api
+```
+
+The default is `http://localhost:3001/api`. This is a public, anonymous client: it uses `GET` requests only and omits browser credentials.
 
 The development server prints its local URL (normally `http://localhost:5173`).
 
@@ -30,9 +38,10 @@ npm run build
 
 - `src/pages/` — routed public, staff, administrator, and sign-in views.
 - `src/components/` — shared layout, cards, badges, and the demonstration notice.
-- `src/data/mockData.ts` — selected, publicly sourced seed profiles and category options.
-- `src/state/` — shared in-memory registry and workflow state.
-- `src/test/` — route, directory, workflow, and validation coverage.
+- `src/api/` — typed anonymous API client and request-state hook.
+- `src/data/mockData.ts` — local fixtures retained only for temporary staff/admin previews.
+- `src/state/` — shared in-memory state for temporary staff/admin previews.
+- `src/test/` — API-mocked public-route, workflow, and validation coverage.
 
 ## Routes
 

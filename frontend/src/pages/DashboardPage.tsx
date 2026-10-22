@@ -9,7 +9,7 @@ export function DashboardPage() {
   const summary = [
     { label: 'Draft records', value: establishments.filter((record) => record.status === 'Draft').length, note: 'Records being prepared for submission' },
     { label: 'Awaiting review', value: establishments.filter((record) => record.status === 'Pending review').length, note: 'Submitted records awaiting a decision' },
-    { label: 'Published records', value: establishments.filter((record) => record.status === 'Published').length, note: 'Visible in the public directory' },
+    { label: 'Published records', value: establishments.filter((record) => record.status === 'Published').length, note: 'Published in this local preview only' },
   ]
 
   return <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">

@@ -32,7 +32,7 @@ export function ReviewPage() {
       return
     }
     setFeedbackByRecord((current) => ({ ...current, [id]: '' }))
-    setMessage(decision === 'approve' ? 'Establishment approved and published in the public directory.' : decision === 'request_changes' ? 'Changes requested from the submitting staff member.' : 'Establishment rejected.')
+    setMessage(decision === 'approve' ? 'Establishment approved in the local preview only.' : decision === 'request_changes' ? 'Changes requested in the local preview.' : 'Establishment rejected in the local preview.')
   }
 
   return <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"><div className="max-w-3xl"><p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Administrator review</p><h1 className="mt-2 text-3xl font-black tracking-tight text-navy-950 sm:text-4xl">Pending Reviews</h1><p className="mt-3 leading-7 text-slate-600">Review submitted establishment records, provide feedback where needed, and update their publication status.</p></div>{message && <div className="mt-6 rounded-xl border border-teal-700/20 bg-teal-100 p-4 text-sm text-teal-700" role="status">{message}</div>}<section className="mt-8 space-y-6" aria-live="polite">{pendingEstablishments.length ? pendingEstablishments.map((establishment) => <PendingReviewCard key={establishment.id} establishment={establishment} onReview={review} error={feedbackByRecord[establishment.id]} />) : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><h2 className="font-black text-navy-950">No pending submissions</h2><p className="mt-2 text-sm leading-6 text-slate-600">Submitted establishment records will appear here for review.</p></div>}</section></div>
