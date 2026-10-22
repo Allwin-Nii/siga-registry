@@ -1,170 +1,146 @@
 # SIGA Registry backend
 
-The SIGA Registry API uses Node.js, Express, TypeScript, MySQL 8, `mysql2` promise pools, and `dotenv`. This is Milestone 3, Step 2: it provides public, database-backed read endpoints and internal establishment-management services. It does not yet provide authentication, role-based authorization, or public write/review endpoints.
+The SIGA Registry backend is a Node.js, Express, TypeScript, and MySQL 8 API. Public directory content is read-only and available without authentication. Administrator authentication is required for every change to establishments or categories.
+
+The React frontend is intentionally not connected or changed in this milestone. Its current preview staff/review screens are documented for replacement in [`../docs/frontend-administrator-plan.md`](../docs/frontend-administrator-plan.md).
 
 ## Setup
 
-1. Copy `.env.example` to `.env` and supply the local MySQL application account values. Keep `.env` private; it is ignored by Git.
-2. Confirm the `siga_registry` database exists and that the reviewed initial migration has been run by an authorized administrator. The API never runs migrations automatically.
-3. Install dependencies and start the service:
+1. Copy `.env.example` to `.env` and use a dedicated, least-privilege MySQL application account.
+2. Review the migrations, including `database/migrations/002_administrator_auth.sql`. Migrations are never executed automatically.
+3. Install dependencies and run the API:
 
 ```powershell
-cd backend
+cd C:\Users\User\Documents\siga-registry\backend
 npm install
 npm run dev
 ```
 
-The service validates environment variables before it starts. It creates a reusable MySQL pool, but the pool connects only when a route needs it.
+Keep `.env` private. It is ignored by Git. Never place credentials in source code, command history, browser requests, or logs.
 
 ## Environment variables
 
 | Variable | Purpose |
 | --- | --- |
-| `PORT` | HTTP port; defaults to `3001` when omitted. |
-| `CORS_ORIGIN` | Allowed React development origin, for example `http://localhost:5173`. |
-| `DATABASE_HOST` | MySQL server hostname or address. |
-| `DATABASE_PORT` | MySQL server port; defaults to `3306` when omitted. |
-| `DATABASE_USER` | Dedicated application database user. |
-| `DATABASE_PASSWORD` | Password for the application database user. |
-| `DATABASE_NAME` | Must be `siga_registry`. |
+| `PORT` | API port; defaults to `3001`. |
+| `CORS_ORIGIN` | Exact allowed frontend origin, for example `http://localhost:5173`; no path. |
+| `NODE_ENV` | `development`, `test`, or `production`; defaults to `development`. |
+| `SESSION_TTL_HOURS` | Administrator session lifetime, from 1 to 168 hours; defaults to `8`. |
+| `COOKIE_SECURE` | `true` for HTTPS-only session cookies. Defaults to `true` in production. |
+| `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME` | MySQL connection settings. `DATABASE_NAME` must be `siga_registry`. |
 
-Never commit credentials, place a password in source code, or include it in diagnostic output.
+For production, serve the API over HTTPS, set `NODE_ENV=production`, set `COOKIE_SECURE=true`, and configure the exact HTTPS frontend origin in `CORS_ORIGIN`.
 
-## Public endpoints
+## Database migrations
 
-All successful resource responses use a `data` envelope. List responses also include a `meta` pagination object. Errors use `error.code` and a safe `error.message`.
+`001_initial_schema.sql` creates the established `categories` and `establishments` schema. `002_administrator_auth.sql` is additive: it creates only `administrators` and `administrator_sessions`. It does not alter or remove establishment columns, category records, or legacy workflow enum values.
 
-### `GET /api/health`
-
-Reports API and database availability without disclosing database configuration or errors.
-
-```json
-{
-  "status": "ok",
-  "api": "available",
-  "database": "available"
-}
-```
-
-### `GET /api/categories`
-
-Retrieves the configured category records from MySQL. The initial migration supplies `SOE`, `JVC`, and `OSE`; category IDs mirror the frontend's lowercase identifiers.
+Run reviewed migrations manually with an authorized administrative MySQL account. Do not run them with the runtime application account and do not run them automatically from the API:
 
 ```powershell
-Invoke-RestMethod http://localhost:3001/api/categories
+Get-Content -Raw .\database\migrations\002_administrator_auth.sql |
+  mysql --host=$env:DATABASE_HOST --port=$env:DATABASE_PORT --user=ADMINISTRATOR_ACCOUNT --password siga_registry
 ```
 
-```json
-{
-  "data": [
-    {
-      "id": "soe",
-      "code": "SOE",
-      "name": "SOE",
-      "description": "State-Owned Enterprise"
-    }
-  ]
-}
-```
+Before execution, verify the existing database and check for conflicting pre-existing `administrators` or `administrator_sessions` tables. `CREATE TABLE IF NOT EXISTS` avoids destructive replacement but does not validate a conflicting table definition.
 
-### `GET /api/establishments`
+The application account needs `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on `siga_registry.categories`, `siga_registry.establishments`, `siga_registry.administrators`, and `siga_registry.administrator_sessions`. Schema migration privileges remain separate and should be held only by the authorized migration account.
 
-Returns only records whose workflow status is `published`. It never includes review feedback, workflow status, or audit timestamps.
+## Create the first administrator
 
-| Query parameter | Meaning |
-| --- | --- |
-| `search` | Optional case-insensitive partial name search, up to 120 characters. Literal `%`, `_`, and `!` characters are escaped. |
-| `category` | Optional category code: `SOE`, `JVC`, or `OSE`, case-insensitive. |
-| `page` | One-based page number; defaults to `1`, maximum `10000`. |
-| `pageSize` | Results per page; defaults to `20`, maximum `100`. |
-
-Search and category filters can be combined. Results are ordered deterministically by establishment name and then internal ID.
+After migration `002` has been reviewed and executed, create an administrator manually. There is no public registration endpoint and no default account.
 
 ```powershell
-Invoke-RestMethod 'http://localhost:3001/api/establishments?search=electricity&category=soe&page=1&pageSize=20'
+cd C:\Users\User\Documents\siga-registry\backend
+npm run create-admin -- --email administrator@example.test
 ```
 
-```json
-{
-  "data": [
-    {
-      "id": "7",
-      "slug": "electricity-company-of-ghana",
-      "name": "Electricity Company of Ghana",
-      "website": "https://ecg.com.gh/",
-      "categoryId": "soe",
-      "category": {
-        "id": "soe",
-        "code": "SOE",
-        "name": "SOE",
-        "description": "State-Owned Enterprise"
-      },
-      "email": "help@ecggh.com",
-      "contactNumber": "+233 302 611 611",
-      "summary": "Electricity distribution utility serving customers across southern Ghana."
-    }
-  ],
-  "meta": {
-    "page": 1,
-    "pageSize": 20,
-    "total": 1,
-    "totalPages": 1
-  }
-}
+The CLI prompts twice for a hidden password; it requires a 12–128 character password and never accepts a password command-line argument. It stores only an scrypt password hash. It prints only the administrator email after success—never the password, password hash, session token, or CSRF token.
+
+## Public API
+
+No login is required for these routes. They never redirect visitors to a login page.
+
+| Method | Endpoint | Behavior |
+| --- | --- | --- |
+| `GET` | `/api/health` | API and database availability. |
+| `GET` | `/api/categories` | MySQL-backed public category list. |
+| `GET` | `/api/establishments` | Published-only directory. |
+| `GET` | `/api/establishments/:slug` | One published establishment. |
+
+`GET /api/establishments` supports `search` (case-insensitive partial name match), `category` (`SOE`, `JVC`, or `OSE`, case-insensitive), `page`, and `pageSize`. Search and category filters combine; result ordering is deterministic. Empty directory results are valid until verified records are deliberately imported into MySQL.
+
+Public responses contain the six approved establishment fields—name, website URL, category, email, contact number, and brief description—plus only ID/slug identifiers needed for routing. They never reveal review feedback, workflow history, or unpublished records. Missing and unpublished detail records both return `404`.
+
+## Administrator API
+
+There is no public registration, staff submission, review, or role-header API. An authenticated administrator session is required for all `/api/admin/*` routes except login.
+
+| Method | Endpoint | Access |
+| --- | --- | --- |
+| `POST` | `/api/admin/auth/login` | Exact allowed Origin required; sets cookies on valid credentials. |
+| `GET` | `/api/admin/auth/session` | Authenticated administrator. |
+| `POST` | `/api/admin/auth/logout` | Authenticated administrator + Origin + CSRF. |
+| `GET` | `/api/admin/establishments` | Authenticated administrator; accepts `status`, `page`, `pageSize`. |
+| `POST` | `/api/admin/establishments` | Protected create using the six fields; optional `published` boolean. |
+| `PATCH` | `/api/admin/establishments/:id` | Protected update of the six fields; optional `published` boolean. |
+| `PATCH` | `/api/admin/establishments/:id/publication` | Protected direct publish/unpublish with `{ "published": true | false }`. |
+| `DELETE` | `/api/admin/establishments/:id` | Protected delete. |
+| `GET` | `/api/admin/categories` | Authenticated administrator. |
+| `POST` | `/api/admin/categories` | Protected category create. |
+| `PATCH` | `/api/admin/categories/:id` | Protected category update. |
+| `DELETE` | `/api/admin/categories/:id` | Protected category delete if no establishment references it. |
+
+Administrator establishment changes use direct publication state: `published` for public visibility and `draft` when hidden. The legacy `pending_review`, `changes_requested`, and `rejected` enum values and metadata remain intact for database compatibility, but the new administrator API exposes no staff submission or review action.
+
+### Authenticated request protection
+
+Successful login sets two cookies with intentionally different paths:
+
+- `siga_admin_session`: random session secret, scoped to `/api`, `HttpOnly`, `SameSite=Strict`, and `Secure` when configured. Only its SHA-256 hash is stored in MySQL.
+- `siga_admin_csrf`: random CSRF value, scoped to `/`, `SameSite=Strict`, and `Secure` when configured. Its hash is stored with the session; it is intentionally not `HttpOnly` so the administrator frontend can copy it to a request header.
+
+Every authenticated modification must include browser credentials, the exact `Origin` equal to `CORS_ORIGIN`, and an `X-CSRF-Token` header equal to the `siga_admin_csrf` cookie. The server validates both the cookie/header match and the stored CSRF hash. CORS permits credentials only from `CORS_ORIGIN`.
+
+Example protected request shape (shown with placeholder values only):
+
+```http
+PATCH /api/admin/establishments/42/publication HTTP/1.1
+Origin: https://registry.example.test
+Cookie: siga_admin_session=[HttpOnly browser cookie]; siga_admin_csrf=[csrf value]
+X-CSRF-Token: [csrf value]
+Content-Type: application/json
+
+{ "published": true }
 ```
 
-An empty `data` list is valid while the MySQL database has no deliberately imported published establishment records. The 12 verified frontend seed records remain frontend-only until a separate, reviewed import is authorized.
+## Security decisions
 
-### `GET /api/establishments/:slug`
+- Passwords are hashed with Node.js scrypt using a random salt and fixed memory-cost parameters; plaintext passwords are never stored or logged.
+- Administrator sessions and CSRF values are random 256-bit secrets. The database retains only SHA-256 hashes.
+- SQL uses parameterized queries, including directory filters and all administrator mutations.
+- All six establishment fields, publication flags, category fields, IDs, query parameters, and login inputs are validated server-side.
+- Category deletion checks references in a transaction and the MySQL foreign key remains the final integrity safeguard.
+- Authentication and authorization are enforced by the backend. Frontend visibility, role headers, or local state are not trusted.
 
-Retrieves one published establishment. The response contains the six approved information fields (name, website, category, email, contact number, and brief description), plus an ID and slug for identification/routing. Missing and unpublished records both return `404`, so the public API does not reveal workflow state.
+## Error format
 
-```powershell
-Invoke-RestMethod http://localhost:3001/api/establishments/electricity-company-of-ghana
-```
-
-### Error responses
+Errors use a safe envelope. Database details and credentials are never included.
 
 ```json
 {
   "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid query parameters.",
-    "details": {
-      "page": "Use a number between 1 and 10000."
-    }
+    "code": "FORBIDDEN",
+    "message": "A valid CSRF token is required."
   }
 }
 ```
 
-| Status | Code | Meaning |
-| --- | --- | --- |
-| `400` | `VALIDATION_ERROR` | A route, query parameter, slug, or internal-service input is invalid. |
-| `404` | `NOT_FOUND` | The requested public resource does not exist or is not published. |
-| `409` | `CONFLICT` / `INVALID_WORKFLOW_TRANSITION` | An internal service encountered a duplicate or invalid state change. These are not yet public HTTP responses. |
-| `503` | `DATABASE_UNAVAILABLE` | MySQL could not serve the request; database details are not exposed. |
+Common status codes: `400` validation error, `401` missing/invalid administrator authentication, `403` invalid Origin or CSRF protection, `404` missing public resource, `409` duplicate or referential-integrity conflict, and `503` unavailable database.
 
-## Internal workflow services
+## Verification
 
-`EstablishmentManagementService` is reusable server-side business logic, not an HTTP API. It supports:
-
-- creating a draft;
-- updating a draft or changes-requested record;
-- submitting `draft` or `changes_requested` records for review;
-- approving, requesting changes to, or rejecting only `pending_review` records; and
-- retrieving records for future staff and administrator dashboards.
-
-It validates the same six establishment fields and lowercase category IDs used by the frontend model, resolves those IDs against configured MySQL category codes, normalizes input, handles duplicate names and slugs, and uses transactions for its multi-step operations. Required feedback is enforced for change requests and rejections.
-
-No public routes exist for creation, update, submission, approval, rejection, or internal record lists. Client-provided roles and placeholder authentication are deliberately not accepted. A future milestone must add verified authentication and server-side role-based authorization before any of those operations can be exposed.
-
-## Initial schema migration
-
-Review [`database/migrations/001_initial_schema.sql`](database/migrations/001_initial_schema.sql) before executing it with an authorized administrative account. It assumes the `siga_registry` database already exists, does not create or drop the database, uses the established `categories` and `establishments` tables, and does not seed establishment records. This Step 2 implementation requires no additional schema migration.
-
-## Testing and verification
-
-The automated tests use mocked repositories, services, and transaction connections. They do not connect to or modify the user's `siga_registry` database.
+Tests use mocked repositories, services, and transactions. They do not connect to, migrate, or modify the actual `siga_registry` database.
 
 ```powershell
 cd C:\Users\User\Documents\siga-registry\backend
@@ -173,4 +149,4 @@ npm test
 npm run build
 ```
 
-The test suite covers category retrieval, published directory/detail behavior, combined filters and pagination, safe database errors, query validation, SQL parameterization/injection resistance, duplicate records, transactions, and valid/invalid workflow transitions.
+Coverage includes anonymous public access, administrator account creation/login/logout, cookie properties, authentication, Origin and CSRF rejection, administrator CRUD authorization, direct publication state, category reference protection, input validation, safe database failures, transactions, and SQL injection resistance.

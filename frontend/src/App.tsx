@@ -1,13 +1,16 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { AdminLayout } from './components/AdminLayout'
+import { AdminRoute } from './components/AdminRoute'
 import { SiteLayout } from './components/SiteLayout'
-import { DashboardPage } from './pages/DashboardPage'
+import { AdminCategoryPage } from './pages/AdminCategoryPage'
+import { AdminDashboardPage } from './pages/AdminDashboardPage'
+import { AdminEstablishmentFormPage } from './pages/AdminEstablishmentFormPage'
+import { AdminEstablishmentListPage } from './pages/AdminEstablishmentListPage'
+import { AdminLoginPage } from './pages/AdminLoginPage'
 import { DirectoryPage } from './pages/DirectoryPage'
 import { EstablishmentDetailPage } from './pages/EstablishmentDetailPage'
 import { LandingPage } from './pages/LandingPage'
 import { NotFoundPage } from './pages/NotFoundPage'
-import { RecordFormPage } from './pages/RecordFormPage'
-import { ReviewPage } from './pages/ReviewPage'
-import { SignInPage } from './pages/SignInPage'
 
 function App() {
   return (
@@ -16,12 +19,20 @@ function App() {
         <Route index element={<LandingPage />} />
         <Route path="directory" element={<DirectoryPage />} />
         <Route path="establishments/:slug" element={<EstablishmentDetailPage />} />
-        <Route path="staff/dashboard" element={<DashboardPage />} />
-        <Route path="staff/records/new" element={<RecordFormPage mode="create" />} />
-        <Route path="staff/records/:recordId/edit" element={<RecordFormPage mode="edit" />} />
-        <Route path="admin/review" element={<ReviewPage />} />
       </Route>
-      <Route path="sign-in" element={<SignInPage />} />
+      <Route path="admin/login" element={<AdminLoginPage />} />
+      <Route element={<AdminRoute />}>
+        <Route element={<AdminLayout />}>
+          <Route path="admin" element={<AdminDashboardPage />} />
+          <Route path="admin/establishments" element={<AdminEstablishmentListPage />} />
+          <Route path="admin/establishments/new" element={<AdminEstablishmentFormPage mode="create" />} />
+          <Route path="admin/establishments/:recordId/edit" element={<AdminEstablishmentFormPage mode="edit" />} />
+          <Route path="admin/categories" element={<AdminCategoryPage />} />
+        </Route>
+      </Route>
+      <Route path="sign-in" element={<Navigate to="/admin/login" replace />} />
+      <Route path="staff/*" element={<Navigate to="/admin/login" replace />} />
+      <Route path="admin/review" element={<Navigate to="/admin" replace />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )

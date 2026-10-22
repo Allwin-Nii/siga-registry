@@ -1,0 +1,302 @@
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import App from '../App'
+import { AdminAuthProvider } from '../state/AdminAuthProvider'
+
+type RecordFixture = {
+  id: number
+  slug: string
+  name: string
+  website: string | null
+  email: string | null
+  contactNumber: string | null
+  summary: string
+  category: { id: number; code: string; name: string; description: string }
+  workflowStatus: 'draft' | 'published'
+  createdAt: string
+  updatedAt: string
+  submittedAt: string | null
+  reviewedAt: string | null
+  reviewFeedback: string | null
+}
+
+const category = { id: 1, code: 'SOE', name: 'SOE', description: 'State-Owned Enterprise' }
+const initialRecord = (): RecordFixture => ({
+  id: 1,
+  slug: 'example-entity',
+  name: 'Example Entity',
+  website: 'https://example.test/',
+  email: 'admin@example.test',
+  contactNumber: '+233 302 000 000',
+  summary: 'An example establishment for administrator interface tests.',
+  category,
+  workflowStatus: 'published',
+  createdAt: '2026-10-22T00:00:00.000Z',
+  updatedAt: '2026-10-22T00:00:00.000Z',
+  submittedAt: null,
+  reviewedAt: null,
+  reviewFeedback: null,
+})
+
+const fetchMock = vi.fn()
+let sessionActive = false
+let forceEstablishmentError = false
+let records: RecordFixture[] = []
+let categories = [category]
+
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { 'Content-Type': 'application/json' },
+})
+
+const unauthorized = () => Promise.resolve(json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication is required.' } }, 401))
+
+const csrfHeader = (init?: RequestInit) => new Headers(init?.headers).get('X-CSRF-Token')
+
+const configureAdministratorApi = () => {
+  fetchMock.mockImplementation((input: string, init?: RequestInit) => {
+    const url = new URL(input)
+    const method = init?.method ?? 'GET'
+    const path = url.pathname
+    const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}
+
+    if (path === '/api/admin/auth/session') {
+      return sessionActive
+        ? Promise.resolve(json({ data: { administrator: { id: 1, email: 'admin@example.test' }, expiresAt: '2026-10-23T00:00:00.000Z' } }))
+        : unauthorized()
+    }
+    if (path === '/api/admin/auth/login' && method === 'POST') {
+      if (body.email !== 'admin@example.test' || body.password !== 'correct-password') {
+        return Promise.resolve(json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' } }, 401))
+      }
+      sessionActive = true
+      document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+      return Promise.resolve(json({ data: { administrator: { id: 1, email: 'admin@example.test' }, expiresAt: '2026-10-23T00:00:00.000Z' } }))
+    }
+    if (path === '/api/admin/auth/logout' && method === 'POST') {
+      if (!sessionActive) return unauthorized()
+      if (csrfHeader(init) !== 'test-csrf-token') return Promise.resolve(json({ error: { code: 'FORBIDDEN', message: 'A valid CSRF token is required.' } }, 403))
+      sessionActive = false
+      document.cookie = 'siga_admin_csrf=; Max-Age=0; Path=/'
+      return Promise.resolve(new Response(null, { status: 204 }))
+    }
+    if (!path.startsWith('/api/admin/')) return Promise.resolve(json({ error: { code: 'NOT_FOUND' } }, 404))
+    if (!sessionActive) return unauthorized()
+    if (forceEstablishmentError && path === '/api/admin/establishments') {
+      return Promise.resolve(json({ error: { code: 'DATABASE_UNAVAILABLE', message: 'The service is temporarily unavailable.' } }, 503))
+    }
+    if (path === '/api/admin/establishments' && method === 'GET') {
+      const status = url.searchParams.get('status')
+      const filtered = status ? records.filter((record) => record.workflowStatus === status) : records
+      const page = Number(url.searchParams.get('page') ?? '1')
+      const pageSize = Number(url.searchParams.get('pageSize') ?? '20')
+      return Promise.resolve(json({
+        data: filtered.slice((page - 1) * pageSize, page * pageSize),
+        meta: { page, pageSize, total: filtered.length, totalPages: Math.ceil(filtered.length / pageSize) },
+      }))
+    }
+    if (path === '/api/admin/establishments' && method === 'POST') {
+      if (csrfHeader(init) !== 'test-csrf-token') return Promise.resolve(json({ error: { code: 'FORBIDDEN', message: 'A valid CSRF token is required.' } }, 403))
+      const record: RecordFixture = { ...initialRecord(), id: 2, slug: 'new-entity', name: String(body.name), website: String(body.website || '') || null, email: String(body.email || '') || null, contactNumber: String(body.contactNumber || '') || null, summary: String(body.summary), category: categories.find((item) => item.code === body.categoryId) ?? category, workflowStatus: 'draft' }
+      records.push(record)
+      return Promise.resolve(json({ data: record }, 201))
+    }
+    const establishmentMatch = path.match(/^\/api\/admin\/establishments\/(\d+)(\/publication)?$/)
+    if (establishmentMatch) {
+      const id = Number(establishmentMatch[1])
+      const record = records.find((item) => item.id === id)
+      if (!record) return Promise.resolve(json({ error: { code: 'NOT_FOUND', message: 'The establishment record was not found.' } }, 404))
+      if (csrfHeader(init) !== 'test-csrf-token') return Promise.resolve(json({ error: { code: 'FORBIDDEN', message: 'A valid CSRF token is required.' } }, 403))
+      if (method === 'DELETE') {
+        records = records.filter((item) => item.id !== id)
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      if (establishmentMatch[2]) {
+        record.workflowStatus = body.published === true ? 'published' : 'draft'
+        return Promise.resolve(json({ data: record }))
+      }
+      record.name = String(body.name)
+      record.website = String(body.website || '') || null
+      record.email = String(body.email || '') || null
+      record.contactNumber = String(body.contactNumber || '') || null
+      record.summary = String(body.summary)
+      record.category = categories.find((item) => item.code === body.categoryId) ?? category
+      return Promise.resolve(json({ data: record }))
+    }
+    if (path === '/api/admin/categories' && method === 'GET') return Promise.resolve(json({ data: categories }))
+    if (path === '/api/admin/categories' && method === 'POST') {
+      if (csrfHeader(init) !== 'test-csrf-token') return Promise.resolve(json({ error: { code: 'FORBIDDEN', message: 'A valid CSRF token is required.' } }, 403))
+      const created = { id: 2, code: String(body.code), name: String(body.name), description: String(body.description) }
+      categories.push(created)
+      return Promise.resolve(json({ data: created }, 201))
+    }
+    const categoryMatch = path.match(/^\/api\/admin\/categories\/(\d+)$/)
+    if (categoryMatch) {
+      const id = Number(categoryMatch[1])
+      const selected = categories.find((item) => item.id === id)
+      if (!selected) return Promise.resolve(json({ error: { code: 'NOT_FOUND' } }, 404))
+      if (csrfHeader(init) !== 'test-csrf-token') return Promise.resolve(json({ error: { code: 'FORBIDDEN', message: 'A valid CSRF token is required.' } }, 403))
+      if (method === 'DELETE') {
+        if (id === 1) return Promise.resolve(json({ error: { code: 'CONFLICT', message: 'A category with establishment records cannot be deleted.' } }, 409))
+        categories = categories.filter((item) => item.id !== id)
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      selected.code = String(body.code)
+      selected.name = String(body.name)
+      selected.description = String(body.description)
+      return Promise.resolve(json({ data: selected }))
+    }
+    return Promise.resolve(json({ error: { code: 'NOT_FOUND' } }, 404))
+  })
+}
+
+function renderAdmin(entry: string) {
+  return render(<AdminAuthProvider><MemoryRouter initialEntries={[entry]}><App /></MemoryRouter></AdminAuthProvider>)
+}
+
+const signIn = async () => {
+  const user = userEvent.setup()
+  await user.type(screen.getByLabelText('Email address'), 'admin@example.test')
+  await user.type(screen.getByLabelText('Password'), 'correct-password')
+  await user.click(screen.getByRole('button', { name: 'Sign in' }))
+  return user
+}
+
+beforeEach(() => {
+  sessionActive = false
+  forceEstablishmentError = false
+  records = [initialRecord()]
+  categories = [{ ...category }]
+  document.cookie = 'siga_admin_csrf=; Max-Age=0; Path=/'
+  fetchMock.mockReset()
+  configureAdministratorApi()
+  vi.stubGlobal('fetch', fetchMock)
+})
+
+afterEach(() => {
+  document.cookie = 'siga_admin_csrf=; Max-Age=0; Path=/'
+  vi.unstubAllGlobals()
+})
+
+describe('administrator interface', () => {
+  it('signs an administrator in with a credentialed request and restores the dashboard', async () => {
+    renderAdmin('/admin/login')
+    await signIn()
+
+    expect(await screen.findByRole('heading', { name: 'Registry overview' })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/api/admin/auth/login',
+      expect.objectContaining({ credentials: 'include', method: 'POST' }),
+    )
+  })
+
+  it('shows invalid-credential errors without establishing a session', async () => {
+    const user = userEvent.setup()
+    renderAdmin('/admin/login')
+    await user.type(screen.getByLabelText('Email address'), 'admin@example.test')
+    await user.type(screen.getByLabelText('Password'), 'wrong-password')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or password.')
+  })
+
+  it('restores an existing session and redirects an expired session to login', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    const restored = renderAdmin('/admin')
+    expect(await screen.findByRole('heading', { name: 'Registry overview' })).toBeInTheDocument()
+    restored.unmount()
+
+    sessionActive = false
+    document.cookie = 'siga_admin_csrf=; Max-Age=0; Path=/'
+    renderAdmin('/admin')
+    expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
+  })
+
+  it('logs out through the protected endpoint and clears administrator access', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    const user = userEvent.setup()
+    renderAdmin('/admin')
+    await screen.findByRole('heading', { name: 'Registry overview' })
+    await user.click(screen.getByRole('button', { name: 'Sign out' }))
+
+    expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/api/admin/auth/logout',
+      expect.objectContaining({ headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }) }),
+    )
+  })
+
+  it('creates and edits establishments with the CSRF header', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    const user = userEvent.setup()
+    renderAdmin('/admin/establishments/new')
+    await screen.findByRole('heading', { name: 'Add establishment' })
+    await user.type(screen.getByLabelText(/^Name/), 'New Entity')
+    await user.type(screen.getByLabelText('Website URL'), 'https://new.example.test')
+    await user.selectOptions(screen.getByLabelText(/^Category/), 'SOE')
+    await user.type(screen.getByLabelText('Email'), 'new@example.test')
+    await user.type(screen.getByLabelText('Contact Number'), '+233 302 000 002')
+    await user.type(screen.getByLabelText(/^Brief Description/), 'A new establishment created through the administrator API.')
+    await user.click(screen.getByRole('button', { name: 'Create establishment' }))
+
+    expect(await screen.findByRole('heading', { name: 'Edit establishment' })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/establishments'), expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }) }))
+    const name = screen.getByLabelText(/^Name/)
+    await user.clear(name)
+    await user.type(name, 'Updated Entity')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    expect(await screen.findByText('Establishment changes saved.')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/establishments/2'), expect.objectContaining({ method: 'PATCH' }))
+  })
+
+  it('requires an explicit deletion confirmation and can publish or unpublish a record', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    const user = userEvent.setup()
+    renderAdmin('/admin/establishments')
+    await screen.findByRole('button', { name: 'Unpublish Example Entity' })
+    await user.click(screen.getByRole('button', { name: /Unpublish Example Entity/ }))
+    expect(await screen.findByText('Establishment unpublished.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Delete Example Entity/ }))
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith('/api/admin/establishments/1') && (init as RequestInit).method === 'DELETE')).toBe(false)
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirm delete' }))
+    expect(await screen.findByText('Establishment deleted.')).toBeInTheDocument()
+  })
+
+  it('creates, edits, and safely reports protected category deletion failures', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    const user = userEvent.setup()
+    renderAdmin('/admin/categories')
+    await screen.findByText('State-Owned Enterprise')
+    await user.type(screen.getByLabelText(/^Code/), 'NEW')
+    await user.type(screen.getByLabelText(/^Name/), 'New category')
+    await user.type(screen.getByLabelText(/^Description/), 'New category description')
+    await user.click(screen.getByRole('button', { name: 'Create category' }))
+    expect(await screen.findByText('Category created.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Edit NEW' }))
+    const categoryName = screen.getByLabelText(/^Name/)
+    await user.clear(categoryName)
+    await user.type(categoryName, 'Updated category')
+    await user.click(screen.getByRole('button', { name: 'Save category' }))
+    expect(await screen.findByText('Category changes saved.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Delete SOE' }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirm delete' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('cannot be deleted')
+  })
+
+  it('shows protected API failures without exposing administration data', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    forceEstablishmentError = true
+    renderAdmin('/admin/establishments')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load establishment records')
+  })
+})

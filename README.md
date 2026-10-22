@@ -4,9 +4,7 @@ SIGA Registry is an establishment management and reference system under staged d
 
 ## Current milestone
 
-Milestone 2 completes the frontend prototype in [`frontend/`](frontend/README.md): a React, TypeScript, Vite, React Router, and Tailwind CSS establishment directory with fictional in-memory data.
-
-Milestone 3, Step 1 adds the reviewed backend foundation in [`backend/`](backend/README.md): Node.js, Express, TypeScript, MySQL 8 configuration, a health endpoint, tests, and a manual initial-schema migration. It does not add authentication, CRUD endpoints, database execution, or frontend integration.
+Milestone 4, Step 2 connects the React administrator workspace in [`frontend/`](frontend/README.md) to the existing Express/MySQL administrator API. Public homepage, directory, and establishment-detail routes remain anonymous and show published records only. The administrator area uses the server's cookie session and CSRF protections for live establishment and category management.
 
 ## Planned structure
 

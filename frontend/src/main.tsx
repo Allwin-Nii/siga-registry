@@ -3,14 +3,14 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
-import { RegistryProvider } from './state/RegistryProvider.tsx'
+import { AdminAuthProvider } from './state/AdminAuthProvider.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RegistryProvider>
+    <AdminAuthProvider>
       <BrowserRouter>
         <App />
       </BrowserRouter>
-    </RegistryProvider>
+    </AdminAuthProvider>
   </StrictMode>,
 )

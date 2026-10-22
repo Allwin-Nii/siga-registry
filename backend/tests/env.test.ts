@@ -24,6 +24,11 @@ describe('environment configuration', () => {
         user: 'siga_registry_app',
         database: 'siga_registry',
       },
+      security: {
+        environment: 'development',
+        sessionTtlHours: 8,
+        secureCookies: false,
+      },
     })
   })
 
@@ -31,5 +36,8 @@ describe('environment configuration', () => {
     expect(() => loadEnvironment({ ...validEnvironment, DATABASE_USER: '' })).toThrow(EnvironmentValidationError)
     expect(() => loadEnvironment({ ...validEnvironment, DATABASE_PORT: 'not-a-port' })).toThrow(EnvironmentValidationError)
     expect(() => loadEnvironment({ ...validEnvironment, DATABASE_NAME: 'other_database' })).toThrow(EnvironmentValidationError)
+    expect(() => loadEnvironment({ ...validEnvironment, CORS_ORIGIN: 'http://localhost:5173/path' })).toThrow(EnvironmentValidationError)
+    expect(() => loadEnvironment({ ...validEnvironment, COOKIE_SECURE: 'sometimes' })).toThrow(EnvironmentValidationError)
+    expect(() => loadEnvironment({ ...validEnvironment, SESSION_TTL_HOURS: '169' })).toThrow(EnvironmentValidationError)
   })
 })

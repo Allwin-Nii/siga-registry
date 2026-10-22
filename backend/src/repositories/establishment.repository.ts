@@ -140,12 +140,8 @@ export interface EstablishmentManagerRepository extends EstablishmentReader {
   findBySlug(slug: string, executor?: DatabaseExecutor): Promise<EstablishmentRecord | undefined>
   createDraft(input: CreateDraftRecord, executor?: DatabaseExecutor): Promise<EstablishmentRecord>
   updateEditableRecord(id: number, input: UpdateDraftRecord, executor?: DatabaseExecutor): Promise<EstablishmentRecord>
-  updateWorkflow(
-    id: number,
-    workflowStatus: WorkflowStatusCode,
-    reviewFeedback: string | null,
-    executor?: DatabaseExecutor,
-  ): Promise<EstablishmentRecord>
+  setPublicationStatus(id: number, published: boolean, executor?: DatabaseExecutor): Promise<EstablishmentRecord>
+  deleteById(id: number, executor?: DatabaseExecutor): Promise<boolean>
   listInternalRecords(query: InternalRecordQuery): Promise<PaginatedResult<EstablishmentRecord>>
 }
 
@@ -265,28 +261,24 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
     return updated
   }
 
-  async updateWorkflow(
+  async setPublicationStatus(
     id: number,
-    workflowStatus: WorkflowStatusCode,
-    reviewFeedback: string | null,
+    published: boolean,
     executor: DatabaseExecutor = this.database,
   ): Promise<EstablishmentRecord> {
-    if (workflowStatus === 'pending_review') {
-      await executor.execute<ResultSetHeader>(`
-        UPDATE establishments
-        SET workflow_status = ?, submitted_at = CURRENT_TIMESTAMP(3), reviewed_at = NULL, review_feedback = NULL
-        WHERE id = ?
-      `, [workflowStatus, id])
-    } else {
-      await executor.execute<ResultSetHeader>(`
-        UPDATE establishments
-        SET workflow_status = ?, reviewed_at = CURRENT_TIMESTAMP(3), review_feedback = ?
-        WHERE id = ?
-      `, [workflowStatus, reviewFeedback, id])
-    }
+    await executor.execute<ResultSetHeader>(`
+      UPDATE establishments
+      SET workflow_status = ?, submitted_at = NULL, reviewed_at = NULL, review_feedback = NULL
+      WHERE id = ?
+    `, [published ? 'published' : 'draft', id])
     const updated = await this.findById(id, executor)
     if (!updated) throw new Error('Updated establishment could not be read.')
     return updated
+  }
+
+  async deleteById(id: number, executor: DatabaseExecutor = this.database) {
+    const [result] = await executor.execute<ResultSetHeader>('DELETE FROM establishments WHERE id = ?', [id])
+    return result.affectedRows === 1
   }
 
   async listInternalRecords(query: InternalRecordQuery): Promise<PaginatedResult<EstablishmentRecord>> {

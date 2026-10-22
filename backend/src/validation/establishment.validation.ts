@@ -48,17 +48,6 @@ export const validateEstablishmentInput = (input: Partial<EstablishmentInput>): 
   return { name, categoryCode, website, email, contactNumber, summary }
 }
 
-export const validateReviewFeedback = (feedback: unknown, required: boolean) => {
-  const normalized = typeof feedback === 'string' ? normalizeWhitespace(feedback) : ''
-  if (required && !normalized) {
-    throw new ValidationError('Review feedback is required for this decision.', { feedback: 'Provide review feedback.' })
-  }
-  if (normalized.length > 4000) {
-    throw new ValidationError('Review feedback is too long.', { feedback: 'Use at most 4000 characters.' })
-  }
-  return normalized || null
-}
-
 export const slugFromName = (name: string) => {
   const slug = name
     .normalize('NFKD')

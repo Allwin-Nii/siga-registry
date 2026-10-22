@@ -31,13 +31,6 @@ export class ConflictError extends ApiError {
   }
 }
 
-export class InvalidWorkflowTransitionError extends ApiError {
-  constructor(message = 'This workflow transition is not allowed.') {
-    super(message, 409, 'INVALID_WORKFLOW_TRANSITION')
-    this.name = 'InvalidWorkflowTransitionError'
-  }
-}
-
 export class DatabaseUnavailableError extends ApiError {
   constructor() {
     super('The service is temporarily unavailable.', 503, 'DATABASE_UNAVAILABLE')
@@ -45,5 +38,29 @@ export class DatabaseUnavailableError extends ApiError {
   }
 }
 
+export class AuthenticationError extends ApiError {
+  constructor(message = 'Authentication is required.') {
+    super(message, 401, 'UNAUTHENTICATED')
+    this.name = 'AuthenticationError'
+  }
+}
+
+export class InvalidCredentialsError extends ApiError {
+  constructor() {
+    super('Invalid email or password.', 401, 'INVALID_CREDENTIALS')
+    this.name = 'InvalidCredentialsError'
+  }
+}
+
+export class ForbiddenError extends ApiError {
+  constructor(message = 'This action is not permitted.') {
+    super(message, 403, 'FORBIDDEN')
+    this.name = 'ForbiddenError'
+  }
+}
+
 export const isDuplicateKeyError = (error: unknown) =>
   typeof error === 'object' && error !== null && 'code' in error && error.code === 'ER_DUP_ENTRY'
+
+export const isForeignKeyReferenceError = (error: unknown) =>
+  typeof error === 'object' && error !== null && 'code' in error && error.code === 'ER_ROW_IS_REFERENCED_2'

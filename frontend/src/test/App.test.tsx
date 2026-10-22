@@ -1,13 +1,9 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PublicCategory, PublicEstablishment } from '../api/publicApi'
 import App from '../App'
-import { DashboardPage } from '../pages/DashboardPage'
-import { RegistryProvider } from '../state/RegistryProvider'
-import { useRegistry } from '../state/useRegistry'
-import type { EstablishmentInput } from '../types'
 
 const categories: PublicCategory[] = [
   { id: 'soe', code: 'SOE', name: 'SOE', description: 'State-Owned Enterprise' },
@@ -63,21 +59,7 @@ const configurePublicApi = () => {
 }
 
 function renderApp(entry = '/') {
-  return render(<RegistryProvider><MemoryRouter initialEntries={[entry]}><App /></MemoryRouter></RegistryProvider>)
-}
-
-const dashboardDraft: EstablishmentInput = {
-  name: 'Dashboard Count Fixture',
-  categoryId: 'jvc',
-  website: '',
-  email: '',
-  contactNumber: '',
-  summary: 'A temporary draft used only to confirm that the dashboard reads shared registry state.',
-}
-
-function DashboardHarness() {
-  const { createEstablishment } = useRegistry()
-  return <><button onClick={() => createEstablishment(dashboardDraft)}>Add draft</button><DashboardPage /></>
+  return render(<MemoryRouter initialEntries={[entry]}><App /></MemoryRouter>)
 }
 
 beforeEach(() => {
@@ -184,14 +166,4 @@ describe('SIGA Registry public API experience', () => {
     expect(screen.getByText('Electricity Company of Ghana')).toBeInTheDocument()
   })
 
-  it('keeps the temporary dashboard provider separate from public API data', async () => {
-    const user = userEvent.setup()
-    render(<RegistryProvider><MemoryRouter><DashboardHarness /></MemoryRouter></RegistryProvider>)
-    const draftCard = screen.getByText('Draft records').parentElement
-    if (!draftCard) throw new Error('Expected the draft count card.')
-    expect(within(draftCard).getByText('0')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Add draft' }))
-    expect(within(draftCard).getByText('1')).toBeInTheDocument()
-    await waitFor(() => expect(fetchMock).not.toHaveBeenCalled())
-  })
 })
