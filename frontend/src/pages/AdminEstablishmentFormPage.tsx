@@ -40,7 +40,7 @@ const findEstablishment = async (id: number, signal: AbortSignal) => {
     const match = result.data.find((record) => record.id === id)
     if (match) return match
   }
-  throw new AdministratorApiError('The establishment record was not found.', 404, 'NOT_FOUND')
+  throw new AdministratorApiError('The entity record was not found.', 404, 'NOT_FOUND')
 }
 
 export function AdminEstablishmentFormPage({ mode }: { mode: 'create' | 'edit' }) {
@@ -59,7 +59,7 @@ export function AdminEstablishmentFormPage({ mode }: { mode: 'create' | 'edit' }
   const resource = usePublicApiResource(useCallback(async (signal: AbortSignal): Promise<FormPageData> => {
     const categories = await listAdministratorCategories({ signal })
     if (mode === 'create') return { categories }
-    if (!parsedId) throw new AdministratorApiError('The establishment record was not found.', 404, 'NOT_FOUND')
+    if (!parsedId) throw new AdministratorApiError('The entity record was not found.', 404, 'NOT_FOUND')
     return { categories, establishment: initialRecord ?? await findEstablishment(parsedId, signal) }
   }, [initialRecord, mode, parsedId]))
 
@@ -93,29 +93,29 @@ export function AdminEstablishmentFormPage({ mode }: { mode: 'create' | 'edit' }
         return
       }
       dispatchValues({ type: 'reset', values: toFormValues(saved) })
-      setSuccess('Establishment changes saved.')
+      setSuccess('Entity changes saved.')
     } catch (error) {
       if (error instanceof AdministratorApiError && error.status === 401) clearExpiredSession()
       if (error instanceof AdministratorApiError && error.details) setFieldErrors(error.details)
-      setFormError(error instanceof Error ? error.message : 'The establishment could not be saved.')
+      setFormError(error instanceof Error ? error.message : 'The entity could not be saved.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (resource.loading) return <div className="mx-auto max-w-3xl px-4 py-20 text-center" role="status">Loading establishment form…</div>
+  if (resource.loading) return <div className="mx-auto max-w-3xl px-4 py-20 text-center" role="status">Loading entity form…</div>
   if (resource.error) {
     const missing = resource.error instanceof AdministratorApiError && resource.error.status === 404
-    return <div className="mx-auto max-w-3xl px-4 py-20 text-center" role="alert"><h1 className="text-3xl font-black text-navy-950">{missing ? 'Establishment not found' : 'The establishment form is unavailable'}</h1><p className="mt-3 text-slate-600">{missing ? 'That administrator record is unavailable.' : resource.error.message}</p><Link to="/admin/establishments" className="mt-6 inline-flex rounded-lg bg-navy-950 px-4 py-2.5 text-sm font-bold text-white">Back to establishments</Link></div>
+    return <div className="mx-auto max-w-3xl px-4 py-20 text-center" role="alert"><h1 className="text-3xl font-black text-navy-950">{missing ? 'Entity not found' : 'The entity form is unavailable'}</h1><p className="mt-3 text-slate-600">{missing ? 'That administrator record is unavailable.' : resource.error.message}</p><Link to="/admin/establishments" className="mt-6 inline-flex rounded-lg bg-navy-950 px-4 py-2.5 text-sm font-bold text-white">Back to entities</Link></div>
   }
   if (!resource.data) return null
 
-  const title = mode === 'create' ? 'Add establishment' : 'Edit establishment'
+  const title = mode === 'create' ? 'Add entity' : 'Edit entity'
   const fieldClass = (field: keyof AdministratorEstablishmentInput) => `mt-2 w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 ${fieldErrors[field] ? 'border-rose-600 bg-rose-50' : 'border-slate-300 bg-white'} focus:border-teal-700`
 
   return <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-    <Link to="/admin/establishments" className="text-sm font-bold text-teal-700 hover:text-teal-600">← Back to establishments</Link>
-    <div className="mt-6"><p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Administrator workspace</p><h1 className="mt-2 text-3xl font-black tracking-tight text-navy-950 sm:text-4xl">{title}</h1><p className="mt-3 leading-7 text-slate-600">Provide the six approved establishment information fields. New establishments remain unpublished until you publish them from the listing.</p></div>
+    <Link to="/admin/establishments" className="text-sm font-bold text-teal-700 hover:text-teal-600">← Back to entities</Link>
+    <div className="mt-6"><p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Administrator workspace</p><h1 className="mt-2 text-3xl font-black tracking-tight text-navy-950 sm:text-4xl">{title}</h1><p className="mt-3 leading-7 text-slate-600">Provide the six approved entity information fields. New entities remain unpublished until you publish them from the listing.</p></div>
     {success && <p className="mt-6 rounded-xl border border-teal-700/20 bg-teal-100 p-4 text-sm text-teal-800" role="status">{success}</p>}
     {formError && <p className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">{formError}</p>}
     <form noValidate onSubmit={(event) => void submit(event)} className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"><div className="grid gap-6 sm:grid-cols-2">
@@ -125,6 +125,6 @@ export function AdminEstablishmentFormPage({ mode }: { mode: 'create' | 'edit' }
       <div><label className="text-sm font-bold text-slate-700" htmlFor="admin-record-email">Email</label><input id="admin-record-email" type="email" value={values.email} onChange={(event) => setField('email', event.target.value)} aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? 'admin-record-email-error' : undefined} className={fieldClass('email')} />{fieldErrors.email && <p id="admin-record-email-error" className="mt-1 text-sm text-rose-700">{fieldErrors.email}</p>}</div>
       <div><label className="text-sm font-bold text-slate-700" htmlFor="admin-record-contact">Contact Number</label><input id="admin-record-contact" type="tel" value={values.contactNumber} onChange={(event) => setField('contactNumber', event.target.value)} aria-invalid={Boolean(fieldErrors.contactNumber)} aria-describedby={fieldErrors.contactNumber ? 'admin-record-contact-error' : undefined} className={fieldClass('contactNumber')} />{fieldErrors.contactNumber && <p id="admin-record-contact-error" className="mt-1 text-sm text-rose-700">{fieldErrors.contactNumber}</p>}</div>
       <div className="sm:col-span-2"><label className="text-sm font-bold text-slate-700" htmlFor="admin-record-summary">Brief Description <span className="text-rose-700">*</span></label><textarea id="admin-record-summary" rows={6} value={values.summary} onChange={(event) => setField('summary', event.target.value)} aria-invalid={Boolean(fieldErrors.summary)} aria-describedby={fieldErrors.summary ? 'admin-record-summary-error' : undefined} className={fieldClass('summary')} />{fieldErrors.summary && <p id="admin-record-summary-error" className="mt-1 text-sm text-rose-700">{fieldErrors.summary}</p>}</div>
-    </div><div className="mt-8 flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-6"><Link to="/admin/establishments" className="rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Cancel</Link><button type="submit" disabled={submitting} className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60 hover:bg-teal-600">{submitting ? 'Saving…' : mode === 'create' ? 'Create establishment' : 'Save changes'}</button></div></form>
+    </div><div className="mt-8 flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-6"><Link to="/admin/establishments" className="rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Cancel</Link><button type="submit" disabled={submitting} className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60 hover:bg-teal-600">{submitting ? 'Saving…' : mode === 'create' ? 'Create entity' : 'Save changes'}</button></div></form>
   </div>
 }

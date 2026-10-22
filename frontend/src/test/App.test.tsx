@@ -77,7 +77,8 @@ describe('SIGA Registry public API experience', () => {
     renderApp('/directory')
 
     expect(await screen.findByText('Electricity Company of Ghana')).toBeInTheDocument()
-    expect(screen.getByLabelText('4 establishments found')).toBeInTheDocument()
+    expect(screen.getByAltText('State Interests and Governance Authority (SIGA)')).toHaveAttribute('src', '/branding/siga-logo.png')
+    expect(screen.getByLabelText('4 entities found')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/establishments?page=1&pageSize=6'),
       expect.objectContaining({ credentials: 'omit' }),
@@ -121,11 +122,11 @@ describe('SIGA Registry public API experience', () => {
     )
   })
 
-  it('shows a clear empty-database state without falling back to mock establishments', async () => {
+  it('shows a clear empty-database state without falling back to mock entities', async () => {
     emptyDirectory = true
     renderApp('/directory')
 
-    expect(await screen.findByText('No published establishments are available yet')).toBeInTheDocument()
+    expect(await screen.findByText('No published entities are available yet')).toBeInTheDocument()
     expect(screen.queryByText('Electricity Company of Ghana')).not.toBeInTheDocument()
   })
 
@@ -140,7 +141,7 @@ describe('SIGA Registry public API experience', () => {
     expect(await screen.findByText('Electricity Company of Ghana')).toBeInTheDocument()
   })
 
-  it('loads only the approved public fields for an establishment detail', async () => {
+  it('loads only the approved public fields for an entity detail', async () => {
     renderApp('/establishments/electricity-company-of-ghana')
 
     expect(await screen.findByRole('heading', { name: 'Electricity Company of Ghana' })).toBeInTheDocument()
@@ -154,7 +155,7 @@ describe('SIGA Registry public API experience', () => {
   it('uses the same public not-found page for unavailable detail routes', async () => {
     renderApp('/establishments/unpublished-or-missing')
 
-    expect(await screen.findByRole('heading', { name: 'Establishment not found' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Entity not found' })).toBeInTheDocument()
     expect(screen.getByText('That profile is unavailable in the public directory.')).toBeInTheDocument()
   })
 

@@ -183,9 +183,13 @@ afterEach(() => {
 describe('administrator interface', () => {
   it('signs an administrator in with a credentialed request and restores the dashboard', async () => {
     renderAdmin('/admin/login')
+    for (const logo of screen.getAllByAltText('State Interests and Governance Authority (SIGA)')) {
+      expect(logo).toHaveAttribute('src', '/branding/siga-logo.png')
+    }
     await signIn()
 
     expect(await screen.findByRole('heading', { name: 'Registry overview' })).toBeInTheDocument()
+    expect(screen.getByAltText('State Interests and Governance Authority (SIGA)')).toHaveAttribute('src', '/branding/siga-logo.png')
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3001/api/admin/auth/login',
       expect.objectContaining({ credentials: 'include', method: 'POST' }),
@@ -230,27 +234,27 @@ describe('administrator interface', () => {
     )
   })
 
-  it('creates and edits establishments with the CSRF header', async () => {
+  it('creates and edits entities with the CSRF header', async () => {
     sessionActive = true
     document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
     const user = userEvent.setup()
     renderAdmin('/admin/establishments/new')
-    await screen.findByRole('heading', { name: 'Add establishment' })
+    await screen.findByRole('heading', { name: 'Add entity' })
     await user.type(screen.getByLabelText(/^Name/), 'New Entity')
     await user.type(screen.getByLabelText('Website URL'), 'https://new.example.test')
     await user.selectOptions(screen.getByLabelText(/^Category/), 'SOE')
     await user.type(screen.getByLabelText('Email'), 'new@example.test')
     await user.type(screen.getByLabelText('Contact Number'), '+233 302 000 002')
-    await user.type(screen.getByLabelText(/^Brief Description/), 'A new establishment created through the administrator API.')
-    await user.click(screen.getByRole('button', { name: 'Create establishment' }))
+    await user.type(screen.getByLabelText(/^Brief Description/), 'A new entity created through the administrator API.')
+    await user.click(screen.getByRole('button', { name: 'Create entity' }))
 
-    expect(await screen.findByRole('heading', { name: 'Edit establishment' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Edit entity' })).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/establishments'), expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }) }))
     const name = screen.getByLabelText(/^Name/)
     await user.clear(name)
     await user.type(name, 'Updated Entity')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
-    expect(await screen.findByText('Establishment changes saved.')).toBeInTheDocument()
+    expect(await screen.findByText('Entity changes saved.')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/establishments/2'), expect.objectContaining({ method: 'PATCH' }))
   })
 
@@ -261,12 +265,12 @@ describe('administrator interface', () => {
     renderAdmin('/admin/establishments')
     await screen.findByRole('button', { name: 'Unpublish Example Entity' })
     await user.click(screen.getByRole('button', { name: /Unpublish Example Entity/ }))
-    expect(await screen.findByText('Establishment unpublished.')).toBeInTheDocument()
+    expect(await screen.findByText('Entity unpublished.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Delete Example Entity/ }))
     expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith('/api/admin/establishments/1') && (init as RequestInit).method === 'DELETE')).toBe(false)
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirm delete' }))
-    expect(await screen.findByText('Establishment deleted.')).toBeInTheDocument()
+    expect(await screen.findByText('Entity deleted.')).toBeInTheDocument()
   })
 
   it('creates, edits, and safely reports protected category deletion failures', async () => {
@@ -297,6 +301,6 @@ describe('administrator interface', () => {
     forceEstablishmentError = true
     renderAdmin('/admin/establishments')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load establishment records')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load entity records')
   })
 })

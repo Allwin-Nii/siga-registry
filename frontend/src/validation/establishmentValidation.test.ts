@@ -9,11 +9,11 @@ const validInput: EstablishmentInput = {
   website: 'https://signal-house.example',
   email: 'contact@signal-house.example',
   contactNumber: '+000 000 0999',
-  summary: 'A fictional sample establishment used to verify canonical registry validation behaviour.',
+  summary: 'A fictional sample entity used to verify canonical registry validation behaviour.',
 }
 
-describe('establishment validation', () => {
-  it('returns field-specific errors for invalid establishment fields and an unknown category', () => {
+describe('entity validation', () => {
+  it('returns field-specific errors for invalid entity fields and an unknown category', () => {
     const errors = validateEstablishmentInput({
       ...validInput,
       name: 'x',
