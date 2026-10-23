@@ -181,6 +181,13 @@ afterEach(() => {
 })
 
 describe('administrator interface', () => {
+  it('allows administrators to navigate directly to the login page', async () => {
+    renderAdmin('/admin/login')
+
+    expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
+  })
+
   it('signs an administrator in with a credentialed request and restores the dashboard', async () => {
     renderAdmin('/admin/login')
     for (const logo of screen.getAllByAltText('State Interests and Governance Authority (SIGA)')) {
@@ -206,16 +213,23 @@ describe('administrator interface', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or password.')
   })
 
-  it('restores an existing session and redirects an expired session to login', async () => {
+  it('restores an existing session', async () => {
     sessionActive = true
     document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
     const restored = renderAdmin('/admin')
     expect(await screen.findByRole('heading', { name: 'Registry overview' })).toBeInTheDocument()
     restored.unmount()
+  })
 
-    sessionActive = false
-    document.cookie = 'siga_admin_csrf=; Max-Age=0; Path=/'
-    renderAdmin('/admin')
+  it.each([
+    '/admin',
+    '/admin/establishments',
+    '/admin/establishments/new',
+    '/admin/establishments/1/edit',
+    '/admin/categories',
+  ])('redirects unauthenticated visitors from %s to administrator login', async (path) => {
+    renderAdmin(path)
+
     expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
   })
 

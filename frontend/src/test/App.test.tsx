@@ -73,6 +73,19 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('SIGA Registry public API experience', () => {
+  it('keeps administrator access out of public navigation', async () => {
+    renderApp('/')
+
+    await screen.findByText('Electricity Company of Ghana')
+    expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toHaveTextContent('Home')
+    expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toHaveTextContent('Entities')
+    expect(screen.queryByRole('link', { name: /admin login|administrator|admin dashboard|sign in|staff login|manage entities/i })).not.toBeInTheDocument()
+
+    for (const link of screen.getAllByRole('link')) {
+      expect(link).not.toHaveAttribute('href', expect.stringMatching(/^\/admin(?:\/|$)/))
+    }
+  })
+
   it('loads the public directory without requiring a sign-in', async () => {
     renderApp('/directory')
 
