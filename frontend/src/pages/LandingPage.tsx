@@ -42,7 +42,7 @@ export function LandingPage() {
             <dl className="relative mt-7 space-y-6">
               <div className="border-b border-white/10 pb-6"><dt className="text-3xl font-black text-white">{directory.data ? directory.data.meta.total : directory.error ? '—' : '…'}</dt><dd className="mt-1 text-sm text-slate-300">Published entity profiles</dd></div>
               <div className="border-b border-white/10 pb-6"><dt className="text-3xl font-black text-white">{categories.data ? categories.data.length : categories.error ? '—' : '…'}</dt><dd className="mt-1 text-sm text-slate-300">Entity categories</dd></div>
-              <div><dt className="text-3xl font-black text-white">6</dt><dd className="mt-1 text-sm text-slate-300">Public information fields per profile</dd></div>
+              
             </dl>
           </div>
         </div>

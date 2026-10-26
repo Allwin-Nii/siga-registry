@@ -3,6 +3,8 @@ import type { DatabaseExecutor } from '../config/database.js'
 import type {
   DirectoryQuery,
   EstablishmentRecord,
+  ManagementMember,
+  ValidatedManagementMemberInput,
   PaginatedResult,
   PublicEstablishment,
   RegistryCategory,
@@ -15,6 +17,7 @@ type EstablishmentRow = RowDataPacket & {
   slug: string
   name: string
   website_url: string | null
+  logo_url: string | null
   email: string | null
   contact_number: string | null
   summary: string
@@ -24,10 +27,26 @@ type EstablishmentRow = RowDataPacket & {
   submitted_at: Date | null
   reviewed_at: Date | null
   review_feedback: string | null
+  region: string | null
+  city: string | null
+  physical_address: string | null
+  gps_address: string | null
+  latitude: number | null
+  longitude: number | null
   category_id: number
   category_code: string
   category_name: string
   category_description: string
+}
+
+type ManagementRow = RowDataPacket & {
+  id: number
+  establishment_id: number
+  full_name: string
+  position: string
+  official_email: string | null
+  official_phone: string | null
+  display_order: number
 }
 
 type CountRow = RowDataPacket & { total: number }
@@ -37,9 +56,16 @@ const establishmentColumns = `
   e.slug,
   e.name,
   e.website_url,
+  e.logo_url,
   e.email,
   e.contact_number,
   e.summary,
+  e.region,
+  e.city,
+  e.physical_address,
+  e.gps_address,
+  e.latitude,
+  e.longitude,
   e.workflow_status,
   e.created_at,
   e.updated_at,
@@ -59,14 +85,31 @@ const categoryFromRow = (row: EstablishmentRow): RegistryCategory => ({
   description: row.category_description,
 })
 
-const toRecord = (row: EstablishmentRow): EstablishmentRecord => ({
+const managementFromRow = (row: ManagementRow): ManagementMember => ({
+  id: row.id,
+  fullName: row.full_name,
+  position: row.position,
+  officialEmail: row.official_email,
+  officialPhone: row.official_phone,
+  displayOrder: row.display_order,
+})
+
+const toRecord = (row: EstablishmentRow, management: ManagementMember[] = []): EstablishmentRecord => ({
   id: row.id,
   slug: row.slug,
   name: row.name,
   website: row.website_url,
+  logoUrl: row.logo_url,
   email: row.email,
   contactNumber: row.contact_number,
   summary: row.summary,
+  region: row.region,
+  city: row.city,
+  physicalAddress: row.physical_address,
+  gpsAddress: row.gps_address,
+  latitude: row.latitude == null ? null : Number(row.latitude),
+  longitude: row.longitude == null ? null : Number(row.longitude),
+  management,
   category: categoryFromRow(row),
   workflowStatus: row.workflow_status,
   createdAt: row.created_at,
@@ -83,6 +126,7 @@ const toPublicEstablishment = (record: EstablishmentRecord): PublicEstablishment
     slug: record.slug,
     name: record.name,
     website: record.website ?? '',
+    logoUrl: record.logoUrl ?? '',
     categoryId,
     category: {
       id: categoryId,
@@ -93,6 +137,13 @@ const toPublicEstablishment = (record: EstablishmentRecord): PublicEstablishment
     email: record.email ?? '',
     contactNumber: record.contactNumber ?? '',
     summary: record.summary,
+    region: record.region ?? '',
+    city: record.city ?? '',
+    physicalAddress: record.physicalAddress ?? '',
+    gpsAddress: record.gpsAddress ?? '',
+    latitude: record.latitude ?? null,
+    longitude: record.longitude ?? null,
+    management: record.management ?? [],
   }
 }
 
@@ -140,6 +191,7 @@ export interface EstablishmentManagerRepository extends EstablishmentReader {
   findBySlug(slug: string, executor?: DatabaseExecutor): Promise<EstablishmentRecord | undefined>
   createDraft(input: CreateDraftRecord, executor?: DatabaseExecutor): Promise<EstablishmentRecord>
   updateEditableRecord(id: number, input: UpdateDraftRecord, executor?: DatabaseExecutor): Promise<EstablishmentRecord>
+  replaceManagement(id: number, members: readonly ValidatedManagementMemberInput[], executor?: DatabaseExecutor): Promise<void>
   setPublicationStatus(id: number, published: boolean, executor?: DatabaseExecutor): Promise<EstablishmentRecord>
   deleteById(id: number, executor?: DatabaseExecutor): Promise<boolean>
   listInternalRecords(query: InternalRecordQuery): Promise<PaginatedResult<EstablishmentRecord>>
@@ -183,7 +235,8 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
       WHERE e.slug = ? AND e.workflow_status = 'published'
       LIMIT 1
     `, [slug])
-    return rows[0] ? toPublicEstablishment(toRecord(rows[0])) : undefined
+    if (!rows[0]) return undefined
+    return toPublicEstablishment(await this.toRecordWithManagement(rows[0]))
   }
 
   async findById(id: number, executor: DatabaseExecutor = this.database): Promise<EstablishmentRecord | undefined> {
@@ -194,7 +247,7 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
       WHERE e.id = ?
       LIMIT 1
     `, [id])
-    return rows[0] ? toRecord(rows[0]) : undefined
+    return rows[0] ? await this.toRecordWithManagement(rows[0], executor) : undefined
   }
 
   async findByName(name: string, executor: DatabaseExecutor = this.database): Promise<EstablishmentRecord | undefined> {
@@ -205,7 +258,7 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
       WHERE e.name = ?
       LIMIT 1
     `, [name])
-    return rows[0] ? toRecord(rows[0]) : undefined
+    return rows[0] ? await this.toRecordWithManagement(rows[0], executor) : undefined
   }
 
   async findBySlug(slug: string, executor: DatabaseExecutor = this.database): Promise<EstablishmentRecord | undefined> {
@@ -216,21 +269,29 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
       WHERE e.slug = ?
       LIMIT 1
     `, [slug])
-    return rows[0] ? toRecord(rows[0]) : undefined
+    return rows[0] ? await this.toRecordWithManagement(rows[0], executor) : undefined
   }
 
   async createDraft(input: CreateDraftRecord, executor: DatabaseExecutor = this.database): Promise<EstablishmentRecord> {
     const [result] = await executor.execute<ResultSetHeader>(`
       INSERT INTO establishments (
-        name, website_url, category_id, email, contact_number, summary, slug, workflow_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'draft')
+        name, website_url, logo_url, category_id, email, contact_number, summary,
+        region, city, physical_address, gps_address, latitude, longitude, slug, workflow_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
     `, [
       input.name,
       input.website,
+      input.logoUrl ?? null,
       input.categoryDatabaseId,
       input.email,
       input.contactNumber,
       input.summary,
+      input.region ?? null,
+      input.city ?? null,
+      input.physicalAddress ?? null,
+      input.gpsAddress ?? null,
+      input.latitude ?? null,
+      input.longitude ?? null,
       input.slug,
     ])
     const created = await this.findById(result.insertId, executor)
@@ -245,15 +306,23 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
   ): Promise<EstablishmentRecord> {
     await executor.execute<ResultSetHeader>(`
       UPDATE establishments
-      SET name = ?, website_url = ?, category_id = ?, email = ?, contact_number = ?, summary = ?
+      SET name = ?, website_url = ?, logo_url = ?, category_id = ?, email = ?, contact_number = ?, summary = ?,
+          region = ?, city = ?, physical_address = ?, gps_address = ?, latitude = ?, longitude = ?
       WHERE id = ?
     `, [
       input.name,
       input.website,
+      input.logoUrl ?? null,
       input.categoryDatabaseId,
       input.email,
       input.contactNumber,
       input.summary,
+      input.region ?? null,
+      input.city ?? null,
+      input.physicalAddress ?? null,
+      input.gpsAddress ?? null,
+      input.latitude ?? null,
+      input.longitude ?? null,
       id,
     ])
     const updated = await this.findById(id, executor)
@@ -274,6 +343,28 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
     const updated = await this.findById(id, executor)
     if (!updated) throw new Error('Updated establishment could not be read.')
     return updated
+  }
+
+  async replaceManagement(
+    id: number,
+    members: readonly ValidatedManagementMemberInput[],
+    executor: DatabaseExecutor = this.database,
+  ): Promise<void> {
+    await executor.execute<ResultSetHeader>('DELETE FROM entity_management WHERE establishment_id = ?', [id])
+    for (const member of members) {
+      await executor.execute<ResultSetHeader>(`
+        INSERT INTO entity_management (
+          establishment_id, full_name, position, official_email, official_phone, display_order
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `, [
+        id,
+        member.fullName,
+        member.position,
+        member.officialEmail,
+        member.officialPhone,
+        member.displayOrder,
+      ])
+    }
   }
 
   async deleteById(id: number, executor: DatabaseExecutor = this.database) {
@@ -304,11 +395,21 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
     `, [...parameters, query.pageSize, (query.page - 1) * query.pageSize])
     const total = Number(countRows[0]?.total ?? 0)
     return {
-      data: rows.map(toRecord),
+      data: await Promise.all(rows.map((row) => this.toRecordWithManagement(row))),
       page: query.page,
       pageSize: query.pageSize,
       total,
       totalPages: Math.ceil(total / query.pageSize),
     }
+  }
+
+  private async toRecordWithManagement(row: EstablishmentRow, executor: DatabaseExecutor = this.database): Promise<EstablishmentRecord> {
+    const [managementRows] = await executor.execute<ManagementRow[]>(`
+      SELECT id, establishment_id, full_name, position, official_email, official_phone, display_order
+      FROM entity_management
+      WHERE establishment_id = ?
+      ORDER BY display_order ASC, id ASC
+    `, [row.id])
+    return toRecord(row, managementRows.map(managementFromRow))
   }
 }

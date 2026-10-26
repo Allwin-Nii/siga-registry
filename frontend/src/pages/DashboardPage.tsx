@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'  
 import { Badge } from '../components/Badge'
 import { SectionHeading } from '../components/SectionHeading'
 import { categoryLabel } from '../data/mockData'

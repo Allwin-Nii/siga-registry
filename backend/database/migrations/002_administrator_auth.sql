@@ -1,6 +1,3 @@
--- SIGA Registry administrator authentication schema for MySQL 8.
--- Review and run manually as an authorized administrator after 001_initial_schema.sql.
--- This is additive: it does not alter, remove, or recreate existing registry tables.
 
 CREATE TABLE IF NOT EXISTS administrators (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

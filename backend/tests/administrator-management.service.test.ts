@@ -41,6 +41,7 @@ const establishmentRepository = () => ({
   findBySlug: vi.fn(async () => undefined),
   createDraft: vi.fn(async (draft) => ({ ...existing, id: 2, name: draft.name, slug: draft.slug, workflowStatus: 'draft' as const })),
   updateEditableRecord: vi.fn(async () => existing),
+  replaceManagement: vi.fn(async () => undefined),
   setPublicationStatus: vi.fn(async (id, published) => ({ ...existing, id, workflowStatus: published ? 'published' as const : 'draft' as const })),
   deleteById: vi.fn(async () => true),
   listInternalRecords: vi.fn(async () => ({ data: [existing], page: 1, pageSize: 20, total: 1, totalPages: 1 })),
@@ -80,6 +81,32 @@ describe('direct administrator management services', () => {
     await expect(service.create({ ...input, summary: 'short' })).rejects.toBeInstanceOf(ValidationError)
     await expect(service.create({ ...input, categoryId: 'bad' })).rejects.toBeInstanceOf(ValidationError)
     expect(establishments.createDraft).not.toHaveBeenCalled()
+  })
+
+  it('validates secure profile details and replaces management members atomically with an entity update', async () => {
+    const establishments = establishmentRepository()
+    const categories = categoryRepository()
+    const service = new AdministratorEstablishmentService(establishments, categories, transactions)
+
+    await expect(service.create({ ...input, logoUrl: 'http://images.example.test/logo.png' })).rejects.toBeInstanceOf(ValidationError)
+    await expect(service.create({ ...input, gpsAddress: 'not-a-gps-address' })).rejects.toBeInstanceOf(ValidationError)
+    await expect(service.create({ ...input, latitude: 91, longitude: 0 })).rejects.toBeInstanceOf(ValidationError)
+    await expect(service.create({ ...input, latitude: 5.6, longitude: null })).rejects.toBeInstanceOf(ValidationError)
+
+    await service.update(1, {
+      ...input,
+      logoUrl: 'https://images.example.test/logo.png',
+      region: 'Greater Accra',
+      city: 'Accra',
+      gpsAddress: 'GA-123-4567',
+      latitude: 5.6037,
+      longitude: -0.187,
+      management: [{ fullName: 'Ama Mensah', position: 'Managing Director', officialEmail: '', officialPhone: '' }],
+    })
+
+    expect(establishments.replaceManagement).toHaveBeenCalledWith(1, [{
+      fullName: 'Ama Mensah', position: 'Managing Director', officialEmail: null, officialPhone: null, displayOrder: 0,
+    }], transaction)
   })
 
   it('allows category CRUD but blocks deletion while an establishment references the category', async () => {

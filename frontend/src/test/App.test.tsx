@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,7 +12,7 @@ const categories: PublicCategory[] = [
 ]
 
 const establishments: PublicEstablishment[] = [
-  { id: '1', slug: 'electricity-company-of-ghana', name: 'Electricity Company of Ghana', website: 'https://ecg.example.test/', categoryId: 'soe', category: categories[0], email: 'help@ecg.example.test', contactNumber: '+233 302 611 611', summary: 'Electricity distribution utility.' },
+  { id: '1', slug: 'electricity-company-of-ghana', name: 'Electricity Company of Ghana', website: 'https://ecg.example.test/', logoUrl: 'https://ecg.example.test/logo.png', categoryId: 'soe', category: categories[0], email: 'help@ecg.example.test', contactNumber: '+233 302 611 611', summary: 'Electricity distribution utility.', region: 'Greater Accra', city: 'Accra', physicalAddress: '1 ECG Road', gpsAddress: 'GA-123-4567', latitude: 5.6037, longitude: -0.187, management: [{ id: 10, fullName: 'Ama Mensah', position: 'Managing Director', officialEmail: 'ama@ecg.example.test', officialPhone: '', displayOrder: 0 }, { id: 11, fullName: 'Kojo Owusu', position: 'Board Chair', officialEmail: null, officialPhone: '+233 302 000 001', displayOrder: 1 }] },
   { id: '2', slug: 'volta-river-authority', name: 'Volta River Authority', website: 'https://vra.example.test/', categoryId: 'soe', category: categories[0], email: 'info@vra.example.test', contactNumber: '+233 302 664 941', summary: 'Power utility.' },
   { id: '3', slug: 'ghana-oil-company', name: 'Ghana Oil Company', website: '', categoryId: 'jvc', category: categories[1], email: '', contactNumber: '', summary: 'Energy company.' },
   { id: '4', slug: 'forestry-commission', name: 'Forestry Commission', website: 'https://forestry.example.test/', categoryId: 'ose', category: categories[2], email: 'info@forestry.example.test', contactNumber: '+233 302 401 227', summary: 'Forestry and wildlife authority.' },
@@ -154,15 +154,24 @@ describe('SIGA Registry public API experience', () => {
     expect(await screen.findByText('Electricity Company of Ghana')).toBeInTheDocument()
   })
 
-  it('loads only the approved public fields for an entity detail', async () => {
+  it('renders an enhanced published entity profile with a logo, location, map, and management selection', async () => {
+    const user = userEvent.setup()
     renderApp('/establishments/electricity-company-of-ghana')
 
     expect(await screen.findByRole('heading', { name: 'Electricity Company of Ghana' })).toBeInTheDocument()
-    for (const label of ['Name', 'Website URL', 'Category', 'Email', 'Contact Number', 'Brief Description']) {
+    for (const label of ['Institutional overview', 'Location', 'Contact information', 'Management and leadership', 'Region', 'City', 'GhanaPost GPS address', 'Coordinates']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
+    expect(screen.getByAltText('Electricity Company of Ghana logo')).toHaveAttribute('src', 'https://ecg.example.test/logo.png')
+    fireEvent.error(screen.getByAltText('Electricity Company of Ghana logo'))
+    expect(screen.getByRole('img', { name: 'No institution logo available' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View on Map' })).toHaveAttribute('href', expect.stringContaining('5.6037'))
     expect(screen.getByRole('link', { name: 'help@ecg.example.test' })).toHaveAttribute('href', 'mailto:help@ecg.example.test')
     expect(screen.getByRole('link', { name: '+233 302 611 611' })).toHaveAttribute('href', 'tel:+233302611611')
+    expect(screen.getByText('Ama Mensah')).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Select a member'), '11')
+    expect(screen.getByText('Kojo Owusu')).toBeInTheDocument()
+    expect(screen.getAllByText('Not provided').length).toBeGreaterThan(0)
   })
 
   it('uses the same public not-found page for unavailable detail routes', async () => {

@@ -23,9 +23,16 @@ const row = {
   slug: 'electricity-company-of-ghana',
   name: 'Electricity Company of Ghana',
   website_url: 'https://ecg.com.gh/',
+  logo_url: 'https://ecg.com.gh/logo.png',
   email: 'help@ecggh.com',
   contact_number: '+233 302 611 611',
   summary: 'Electricity distribution utility serving customers across southern Ghana.',
+  region: 'Greater Accra',
+  city: 'Accra',
+  physical_address: '1 ECG Road',
+  gps_address: 'GA-123-4567',
+  latitude: 5.6037,
+  longitude: -0.187,
   workflow_status: 'published' as const,
   created_at: new Date('2026-10-21T00:00:00.000Z'),
   updated_at: new Date('2026-10-21T00:00:00.000Z'),
@@ -36,6 +43,16 @@ const row = {
   category_code: 'SOE',
   category_name: 'SOE',
   category_description: 'State-Owned Enterprise',
+}
+
+const managementRow = {
+  id: 9,
+  establishment_id: 3,
+  full_name: 'Ama Mensah',
+  position: 'Managing Director',
+  official_email: 'ama.mensah@ecg.com.gh',
+  official_phone: null,
+  display_order: 0,
 }
 
 describe('MySQL repositories', () => {
@@ -104,16 +121,25 @@ describe('MySQL repositories', () => {
   })
 
   it('uses a published-only parameterized lookup for details, so unpublished rows are indistinguishable from missing rows', async () => {
-    const { executor, calls } = createExecutor([[row], []])
+    const { executor, calls } = createExecutor([[row], [managementRow], []])
     const repository = new EstablishmentRepository(executor)
 
     const published = await repository.findPublishedBySlug(row.slug)
     const absent = await repository.findPublishedBySlug('unpublished-record')
 
-    expect(published).toMatchObject({ slug: row.slug, categoryId: 'soe' })
+    expect(published).toMatchObject({
+      slug: row.slug,
+      categoryId: 'soe',
+      logoUrl: row.logo_url,
+      gpsAddress: row.gps_address,
+      management: [{ fullName: managementRow.full_name, position: managementRow.position }],
+    })
     expect(absent).toBeUndefined()
     expect(calls[0]?.sql).toContain("e.slug = ? AND e.workflow_status = 'published'")
     expect(calls[0]?.values).toEqual([row.slug])
-    expect(calls[1]?.values).toEqual(['unpublished-record'])
+    expect(calls[1]?.sql).toContain('FROM entity_management')
+    expect(calls[1]?.values).toEqual([row.id])
+    expect(calls[2]?.sql).toContain("e.slug = ? AND e.workflow_status = 'published'")
+    expect(calls[2]?.values).toEqual(['unpublished-record'])
   })
 })

@@ -1,6 +1,3 @@
--- SIGA Registry initial MySQL 8 schema.
--- Run this only while connected to the existing siga_registry database.
--- This migration does not create, drop, or recreate the database or any tables.
 
 CREATE TABLE IF NOT EXISTS categories (
   id TINYINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -48,7 +45,3 @@ ON DUPLICATE KEY UPDATE
   name = VALUES(name),
   description = VALUES(description),
   updated_at = CURRENT_TIMESTAMP(3);
-
--- No establishment records are seeded. Future user ownership should be added by a
--- separate migration after a users table exists, for example a nullable
--- establishments.created_by_user_id foreign key that preserves existing records.

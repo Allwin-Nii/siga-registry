@@ -5,16 +5,33 @@ export type PublicCategory = {
   description: string
 }
 
+export type PublicManagementMember = {
+  id: number
+  fullName: string
+  position: string
+  officialEmail: string | null
+  officialPhone: string | null
+  displayOrder: number
+}
+
 export type PublicEstablishment = {
   id: string
   slug: string
   name: string
   website: string
+  logoUrl?: string
   categoryId: string
   category: PublicCategory
   email: string
   contactNumber: string
   summary: string
+  region?: string
+  city?: string
+  physicalAddress?: string
+  gpsAddress?: string
+  latitude?: number | null
+  longitude?: number | null
+  management?: PublicManagementMember[]
 }
 
 export type DirectoryMeta = {

@@ -18,13 +18,37 @@ export type EstablishmentInput = {
   name: string
   categoryId: string
   website: string | null
+  logoUrl?: string | null
   email: string | null
   contactNumber: string | null
   summary: string
+  region?: string | null
+  city?: string | null
+  physicalAddress?: string | null
+  gpsAddress?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  management?: ManagementMemberInput[]
 }
 
-export type ValidatedEstablishmentInput = Omit<EstablishmentInput, 'categoryId'> & {
+export type ValidatedEstablishmentInput = Omit<EstablishmentInput, 'categoryId' | 'management'> & {
   categoryCode: string
+  management?: ValidatedManagementMemberInput[]
+}
+
+export type ManagementMemberInput = {
+  fullName: string
+  position: string
+  officialEmail: string | null
+  officialPhone: string | null
+}
+
+export type ValidatedManagementMemberInput = ManagementMemberInput & {
+  displayOrder: number
+}
+
+export type ManagementMember = ValidatedManagementMemberInput & {
+  id: number
 }
 
 export type EstablishmentRecord = {
@@ -32,9 +56,17 @@ export type EstablishmentRecord = {
   slug: string
   name: string
   website: string | null
+  logoUrl?: string | null
   email: string | null
   contactNumber: string | null
   summary: string
+  region?: string | null
+  city?: string | null
+  physicalAddress?: string | null
+  gpsAddress?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  management?: ManagementMember[]
   category: RegistryCategory
   workflowStatus: WorkflowStatusCode
   createdAt: Date
@@ -49,11 +81,19 @@ export type PublicEstablishment = {
   slug: string
   name: string
   website: string
+  logoUrl?: string
   categoryId: string
   category: PublicCategory
   email: string
   contactNumber: string
   summary: string
+  region?: string
+  city?: string
+  physicalAddress?: string
+  gpsAddress?: string
+  latitude?: number | null
+  longitude?: number | null
+  management?: ManagementMember[]
 }
 
 export type DirectoryQuery = {

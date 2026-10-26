@@ -62,7 +62,12 @@ export class AdministratorEstablishmentService {
         if (duplicate) throw new ConflictError('An establishment with this name already exists.')
         const slug = await this.nextAvailableSlug(slugFromName(validated.name), transaction)
         const created = await this.establishments.createDraft({ ...validated, categoryDatabaseId: category.id, slug }, transaction)
-        return publish ? this.establishments.setPublicationStatus(created.id, true, transaction) : created
+        if (validated.management !== undefined) {
+          await this.establishments.replaceManagement(created.id, validated.management, transaction)
+        }
+        return publish
+          ? this.establishments.setPublicationStatus(created.id, true, transaction)
+          : await this.getExisting(created.id, transaction)
       })
     } catch (error) {
       throw this.asServiceError(error)
@@ -82,9 +87,12 @@ export class AdministratorEstablishmentService {
         const duplicate = await this.establishments.findByName(validated.name, transaction)
         if (duplicate && duplicate.id !== id) throw new ConflictError('An establishment with this name already exists.')
         const updated = await this.establishments.updateEditableRecord(id, { ...validated, categoryDatabaseId: category.id }, transaction)
+        if (validated.management !== undefined) {
+          await this.establishments.replaceManagement(id, validated.management, transaction)
+        }
         return publishingWasRequested
           ? this.establishments.setPublicationStatus(updated.id, publish, transaction)
-          : updated
+          : await this.getExisting(updated.id, transaction)
       })
     } catch (error) {
       throw this.asServiceError(error)

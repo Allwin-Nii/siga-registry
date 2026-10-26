@@ -24,9 +24,17 @@ export type AdministratorEstablishment = {
   slug: string
   name: string
   website: string | null
+  logoUrl?: string | null
   email: string | null
   contactNumber: string | null
   summary: string
+  region?: string | null
+  city?: string | null
+  physicalAddress?: string | null
+  gpsAddress?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  management?: AdministratorManagementMember[]
   category: AdministratorCategory
   workflowStatus: AdministratorWorkflowStatus
   createdAt: string
@@ -36,13 +44,32 @@ export type AdministratorEstablishment = {
   reviewFeedback: string | null
 }
 
+export type AdministratorManagementMember = {
+  id: number
+  fullName: string
+  position: string
+  officialEmail: string | null
+  officialPhone: string | null
+  displayOrder: number
+}
+
+export type AdministratorManagementMemberInput = Omit<AdministratorManagementMember, 'id' | 'displayOrder'>
+
 export type AdministratorEstablishmentInput = {
   name: string
   website: string
+  logoUrl: string
   categoryId: string
   email: string
   contactNumber: string
   summary: string
+  region: string
+  city: string
+  physicalAddress: string
+  gpsAddress: string
+  latitude: string
+  longitude: string
+  management: AdministratorManagementMemberInput[]
 }
 
 export type AdministratorCategoryInput = {
