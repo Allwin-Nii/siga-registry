@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,7 +12,7 @@ const categories: PublicCategory[] = [
 ]
 
 const establishments: PublicEstablishment[] = [
-  { id: '1', slug: 'electricity-company-of-ghana', name: 'Electricity Company of Ghana', website: 'https://ecg.example.test/', logoUrl: 'https://ecg.example.test/logo.png', categoryId: 'soe', category: categories[0], email: 'help@ecg.example.test', contactNumber: '+233 302 611 611', summary: 'Electricity distribution utility.', region: 'Greater Accra', city: 'Accra', physicalAddress: '1 ECG Road', gpsAddress: 'GA-123-4567', latitude: 5.6037, longitude: -0.187, management: [{ id: 10, fullName: 'Ama Mensah', position: 'Managing Director', officialEmail: 'ama@ecg.example.test', officialPhone: '', displayOrder: 0 }, { id: 11, fullName: 'Kojo Owusu', position: 'Board Chair', officialEmail: null, officialPhone: '+233 302 000 001', displayOrder: 1 }] },
+  { id: '1', slug: 'electricity-company-of-ghana', name: 'Electricity Company of Ghana', website: 'https://ecg.example.test/', logoUrl: 'https://ecg.example.test/logo.png', categoryId: 'soe', category: categories[0], email: 'help@ecg.example.test', contactNumber: '+233 302 611 611', summary: 'Electricity distribution utility.', region: 'Greater Accra', city: 'Accra', physicalAddress: '1 ECG Road', gpsAddress: 'GA-123-4567', gpsLocationUrl: 'https://www.google.com/maps/place/Electricity+Company+of+Ghana', latitude: 5.6037, longitude: -0.187, management: [{ id: 10, fullName: 'Ama Mensah', position: 'Managing Director', officialEmail: 'ama@ecg.example.test', officialPhone: '', displayOrder: 0 }, { id: 11, fullName: 'Kojo Owusu', position: 'Board Chair', officialEmail: null, officialPhone: '+233 302 000 001', displayOrder: 1 }] },
   { id: '2', slug: 'volta-river-authority', name: 'Volta River Authority', website: 'https://vra.example.test/', categoryId: 'soe', category: categories[0], email: 'info@vra.example.test', contactNumber: '+233 302 664 941', summary: 'Power utility.' },
   { id: '3', slug: 'ghana-oil-company', name: 'Ghana Oil Company', website: '', categoryId: 'jvc', category: categories[1], email: '', contactNumber: '', summary: 'Energy company.' },
   { id: '4', slug: 'forestry-commission', name: 'Forestry Commission', website: 'https://forestry.example.test/', categoryId: 'ose', category: categories[2], email: 'info@forestry.example.test', contactNumber: '+233 302 401 227', summary: 'Forestry and wildlife authority.' },
@@ -154,24 +154,59 @@ describe('SIGA Registry public API experience', () => {
     expect(await screen.findByText('Electricity Company of Ghana')).toBeInTheDocument()
   })
 
-  it('renders an enhanced published entity profile with a logo, location, map, and management selection', async () => {
+  it('renders a responsive published entity profile with a logo, breadcrumb, location, contacts, and management selection', async () => {
     const user = userEvent.setup()
     renderApp('/establishments/electricity-company-of-ghana')
 
     expect(await screen.findByRole('heading', { name: 'Electricity Company of Ghana' })).toBeInTheDocument()
-    for (const label of ['Institutional overview', 'Location', 'Contact information', 'Management and leadership', 'Region', 'City', 'GhanaPost GPS address', 'Coordinates']) {
+    for (const label of ['Institutional overview', 'Location', 'Official contact information', 'Management and leadership', 'Region', 'City', 'GhanaPost GPS digital address']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
+    const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(breadcrumb).toHaveTextContent('Home')
+    expect(breadcrumb).toHaveTextContent('Entities')
+    expect(within(breadcrumb).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
+    expect(within(breadcrumb).getByRole('link', { name: 'Entities' })).toHaveAttribute('href', '/directory')
+    expect(screen.getByTestId('profile-sections')).toHaveClass('sm:p-8', 'lg:p-10')
     expect(screen.getByAltText('Electricity Company of Ghana logo')).toHaveAttribute('src', 'https://ecg.example.test/logo.png')
     fireEvent.error(screen.getByAltText('Electricity Company of Ghana logo'))
     expect(screen.getByRole('img', { name: 'No institution logo available' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View on Map' })).toHaveAttribute('href', expect.stringContaining('5.6037'))
+    expect(screen.getByRole('link', { name: 'View on Google Maps' })).toHaveAttribute('href', 'https://www.google.com/maps/place/Electricity+Company+of+Ghana')
     expect(screen.getByRole('link', { name: 'help@ecg.example.test' })).toHaveAttribute('href', 'mailto:help@ecg.example.test')
     expect(screen.getByRole('link', { name: '+233 302 611 611' })).toHaveAttribute('href', 'tel:+233302611611')
     expect(screen.getByText('Ama Mensah')).toBeInTheDocument()
     await user.selectOptions(screen.getByLabelText('Select a member'), '11')
     expect(screen.getByText('Kojo Owusu')).toBeInTheDocument()
+    expect(screen.getByText('Board Chair')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '+233 302 000 001' })).toHaveAttribute('href', 'tel:+233302000001')
     expect(screen.getAllByText('Not provided').length).toBeGreaterThan(0)
+  })
+
+  it('renders a complete public profile when optional location and management data is absent', async () => {
+    renderApp('/establishments/volta-river-authority')
+
+    expect(await screen.findByRole('heading', { name: 'Volta River Authority' })).toBeInTheDocument()
+    expect(screen.getByText('No management or leadership information has been provided.')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'View on Google Maps' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Not provided').length).toBeGreaterThan(0)
+  })
+
+  it('uses the fallback institution icon when no logo URL is supplied', async () => {
+    renderApp('/establishments/volta-river-authority')
+
+    await screen.findByRole('heading', { name: 'Volta River Authority' })
+    expect(screen.getByRole('img', { name: 'No institution logo available' })).toBeInTheDocument()
+    expect(screen.queryByAltText('Volta River Authority logo')).not.toBeInTheDocument()
+  })
+
+  it('returns to the public directory through the profile breadcrumb', async () => {
+    const user = userEvent.setup()
+    renderApp('/establishments/electricity-company-of-ghana')
+
+    await screen.findByRole('heading', { name: 'Electricity Company of Ghana' })
+    await user.click(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Entities' }))
+
+    expect(await screen.findByRole('heading', { name: 'Explore Specified Entities' })).toBeInTheDocument()
   })
 
   it('uses the same public not-found page for unavailable detail routes', async () => {

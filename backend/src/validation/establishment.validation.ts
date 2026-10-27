@@ -11,7 +11,20 @@ export const normalizeWhitespace = (value: string) => value.trim().replace(/\s+/
 const validUrl = (value: string, allowedProtocols: readonly string[]) => {
   try {
     const url = new URL(value)
-    return allowedProtocols.includes(url.protocol)
+    return allowedProtocols.includes(url.protocol) && Boolean(url.hostname) && !url.username && !url.password
+  } catch {
+    return false
+  }
+}
+
+const validGoogleMapsUrl = (value: string) => {
+  try {
+    const url = new URL(value)
+    const host = url.hostname.toLocaleLowerCase()
+    const isGoogleMapsHost = /^(?:www\.|maps\.)?google\.[a-z]{2,}(?:\.[a-z]{2})?$/.test(host)
+    if (url.protocol !== 'https:' || !isGoogleMapsHost || url.username || url.password) return false
+    if (url.pathname === '/maps' || url.pathname.startsWith('/maps/')) return true
+    return host.startsWith('maps.google.') && url.pathname === '/' && url.search.length > 1
   } catch {
     return false
   }
@@ -74,8 +87,9 @@ export const validateEstablishmentInput = (input: Partial<EstablishmentInput>): 
   const city = optionalText(input.city)
   const physicalAddress = optionalText(input.physicalAddress)
   const gpsAddress = optionalText(input.gpsAddress)
-  const latitude = optionalCoordinate(input.latitude, 'latitude', errors)
-  const longitude = optionalCoordinate(input.longitude, 'longitude', errors)
+  const gpsLocationUrl = optionalText(input.gpsLocationUrl)
+  const latitude = input.latitude === undefined ? undefined : optionalCoordinate(input.latitude, 'latitude', errors)
+  const longitude = input.longitude === undefined ? undefined : optionalCoordinate(input.longitude, 'longitude', errors)
   const management = validateManagement(input.management, errors)
 
   if (name.length < 3 || name.length > 120) errors.name = 'Enter a name between 3 and 120 characters.'
@@ -101,7 +115,10 @@ export const validateEstablishmentInput = (input: Partial<EstablishmentInput>): 
   if (gpsAddress && !/^[A-Z]{2}-\d{3,4}-\d{4}$/i.test(gpsAddress)) {
     errors.gpsAddress = 'Enter a GhanaPost GPS address such as GA-123-4567.'
   }
-  if ((latitude === null) !== (longitude === null)) {
+  if (gpsLocationUrl && (gpsLocationUrl.length > 2048 || !validGoogleMapsUrl(gpsLocationUrl))) {
+    errors.gpsLocationUrl = 'Enter a valid HTTPS Google Maps location URL; shortened links are not supported.'
+  }
+  if ((latitude !== undefined || longitude !== undefined) && (latitude === null || latitude === undefined || longitude === null || longitude === undefined)) {
     errors.coordinates = 'Provide both latitude and longitude, or leave both blank.'
   }
 
@@ -119,6 +136,7 @@ export const validateEstablishmentInput = (input: Partial<EstablishmentInput>): 
     city,
     physicalAddress,
     gpsAddress,
+    gpsLocationUrl,
     latitude,
     longitude,
     management,

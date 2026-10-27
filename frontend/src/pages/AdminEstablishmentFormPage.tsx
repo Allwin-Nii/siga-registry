@@ -22,7 +22,7 @@ const managementKey = () => `management-${Date.now()}-${Math.random().toString(3
 
 const emptyValues: FormValues = {
   name: '', website: '', logoUrl: '', categoryId: '', email: '', contactNumber: '', summary: '',
-  region: '', city: '', physicalAddress: '', gpsAddress: '', latitude: '', longitude: '', management: [],
+  region: '', city: '', physicalAddress: '', gpsAddress: '', gpsLocationUrl: '', management: [],
 }
 
 type FormValuesAction =
@@ -65,8 +65,7 @@ const toFormValues = (establishment: AdministratorEstablishment): FormValues => 
   city: establishment.city ?? '',
   physicalAddress: establishment.physicalAddress ?? '',
   gpsAddress: establishment.gpsAddress ?? '',
-  latitude: establishment.latitude === null || establishment.latitude === undefined ? '' : String(establishment.latitude),
-  longitude: establishment.longitude === null || establishment.longitude === undefined ? '' : String(establishment.longitude),
+  gpsLocationUrl: establishment.gpsLocationUrl ?? '',
   management: (establishment.management ?? []).map((member) => ({
     key: `persisted-${member.id}`,
     fullName: member.fullName,
@@ -189,8 +188,7 @@ export function AdminEstablishmentFormPage({ mode }: { mode: 'create' | 'edit' }
         <div><label className="text-sm font-bold text-slate-700" htmlFor="admin-record-city">City</label><input id="admin-record-city" value={values.city} onChange={(event) => setField('city', event.target.value)} className={fieldClass('city')} />{fieldErrors.city && <p className="mt-1 text-sm text-rose-700">{fieldErrors.city}</p>}</div>
         <div className="sm:col-span-2"><label className="text-sm font-bold text-slate-700" htmlFor="admin-record-address">Physical address</label><textarea id="admin-record-address" rows={3} value={values.physicalAddress} onChange={(event) => setField('physicalAddress', event.target.value)} className={fieldClass('physicalAddress')} />{fieldErrors.physicalAddress && <p className="mt-1 text-sm text-rose-700">{fieldErrors.physicalAddress}</p>}</div>
         <div><label className="text-sm font-bold text-slate-700" htmlFor="admin-record-gps">GhanaPost GPS address</label><input id="admin-record-gps" value={values.gpsAddress} onChange={(event) => setField('gpsAddress', event.target.value)} className={fieldClass('gpsAddress')} placeholder="GA-123-4567" />{fieldErrors.gpsAddress && <p className="mt-1 text-sm text-rose-700">{fieldErrors.gpsAddress}</p>}</div>
-        <div className="grid grid-cols-2 gap-3"><div><label className="text-sm font-bold text-slate-700" htmlFor="admin-record-latitude">Latitude</label><input id="admin-record-latitude" inputMode="decimal" value={values.latitude} onChange={(event) => setField('latitude', event.target.value)} className={fieldClass('latitude')} /></div><div><label className="text-sm font-bold text-slate-700" htmlFor="admin-record-longitude">Longitude</label><input id="admin-record-longitude" inputMode="decimal" value={values.longitude} onChange={(event) => setField('longitude', event.target.value)} className={fieldClass('longitude')} /></div></div>
-        {fieldErrors.coordinates && <p className="sm:col-span-2 -mt-3 text-sm text-rose-700">{fieldErrors.coordinates}</p>}
+        <div className="sm:col-span-2"><label className="text-sm font-bold text-slate-700" htmlFor="admin-record-gps-location">GPS Location (Google Maps Link)</label><input id="admin-record-gps-location" type="url" value={values.gpsLocationUrl} onChange={(event) => setField('gpsLocationUrl', event.target.value)} className={fieldClass('gpsLocationUrl')} placeholder="https://www.google.com/maps/place/..." />{fieldErrors.gpsLocationUrl && <p className="mt-1 text-sm text-rose-700">{fieldErrors.gpsLocationUrl}</p>}<p className="mt-1 text-xs text-slate-500">Paste a full, verified Google Maps location URL. Shortened links are not supported.</p></div>
       </div></section>
       <section aria-labelledby="official-contact-heading" className="border-t border-slate-200 pt-8"><h2 id="official-contact-heading" className="text-xl font-black text-navy-950">Official contact information</h2><div className="mt-5 grid gap-6 sm:grid-cols-2">
         <div><label className="text-sm font-bold text-slate-700" htmlFor="admin-record-website">Website URL</label><input id="admin-record-website" type="url" value={values.website} onChange={(event) => setField('website', event.target.value)} aria-invalid={Boolean(fieldErrors.website)} className={fieldClass('website')} placeholder="https://example.gov.gh" />{fieldErrors.website && <p className="mt-1 text-sm text-rose-700">{fieldErrors.website}</p>}</div>

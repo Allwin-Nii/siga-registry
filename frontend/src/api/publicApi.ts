@@ -29,6 +29,7 @@ export type PublicEstablishment = {
   city?: string
   physicalAddress?: string
   gpsAddress?: string
+  gpsLocationUrl?: string
   latitude?: number | null
   longitude?: number | null
   management?: PublicManagementMember[]

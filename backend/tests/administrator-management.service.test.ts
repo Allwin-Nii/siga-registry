@@ -16,6 +16,8 @@ const existing: EstablishmentRecord = {
   email: 'info@existing.test',
   contactNumber: '+233 302 000 000',
   summary: 'An existing establishment with a sufficiently detailed description.',
+  latitude: 5.6037,
+  longitude: -0.187,
   category,
   workflowStatus: 'published',
   createdAt: new Date(),
@@ -92,6 +94,14 @@ describe('direct administrator management services', () => {
     await expect(service.create({ ...input, gpsAddress: 'not-a-gps-address' })).rejects.toBeInstanceOf(ValidationError)
     await expect(service.create({ ...input, latitude: 91, longitude: 0 })).rejects.toBeInstanceOf(ValidationError)
     await expect(service.create({ ...input, latitude: 5.6, longitude: null })).rejects.toBeInstanceOf(ValidationError)
+    await expect(service.create({ ...input, gpsLocationUrl: 'javascript:alert(1)' })).rejects.toBeInstanceOf(ValidationError)
+    await expect(service.create({ ...input, gpsLocationUrl: 'https://maps.app.goo.gl/short-link' })).rejects.toBeInstanceOf(ValidationError)
+    await expect(service.create({ ...input, gpsLocationUrl: 'https://www.example.test/maps/place/entity' })).rejects.toBeInstanceOf(ValidationError)
+
+    await expect(service.create({
+      ...input,
+      gpsLocationUrl: 'https://www.google.com/maps/place/Ghana+Cocoa+Board',
+    })).resolves.toBeDefined()
 
     await service.update(1, {
       ...input,
@@ -99,6 +109,7 @@ describe('direct administrator management services', () => {
       region: 'Greater Accra',
       city: 'Accra',
       gpsAddress: 'GA-123-4567',
+      gpsLocationUrl: 'https://maps.google.com/?q=5.6037,-0.1870',
       latitude: 5.6037,
       longitude: -0.187,
       management: [{ fullName: 'Ama Mensah', position: 'Managing Director', officialEmail: '', officialPhone: '' }],
@@ -107,6 +118,19 @@ describe('direct administrator management services', () => {
     expect(establishments.replaceManagement).toHaveBeenCalledWith(1, [{
       fullName: 'Ama Mensah', position: 'Managing Director', officialEmail: null, officialPhone: null, displayOrder: 0,
     }], transaction)
+  })
+
+  it('keeps stored coordinates when the administrator form omits them', async () => {
+    const establishments = establishmentRepository()
+    const categories = categoryRepository()
+    const service = new AdministratorEstablishmentService(establishments, categories, transactions)
+
+    await service.update(1, { ...input, gpsLocationUrl: 'https://www.google.com/maps/place/Existing+Entity' })
+
+    expect(establishments.updateEditableRecord).toHaveBeenCalledWith(1, expect.objectContaining({
+      latitude: 5.6037,
+      longitude: -0.187,
+    }), transaction)
   })
 
   it('allows category CRUD but blocks deletion while an establishment references the category', async () => {

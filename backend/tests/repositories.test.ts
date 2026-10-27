@@ -31,6 +31,7 @@ const row = {
   city: 'Accra',
   physical_address: '1 ECG Road',
   gps_address: 'GA-123-4567',
+  gps_location_url: 'https://www.google.com/maps/place/ECG',
   latitude: 5.6037,
   longitude: -0.187,
   workflow_status: 'published' as const,
@@ -132,6 +133,9 @@ describe('MySQL repositories', () => {
       categoryId: 'soe',
       logoUrl: row.logo_url,
       gpsAddress: row.gps_address,
+      gpsLocationUrl: row.gps_location_url,
+      latitude: row.latitude,
+      longitude: row.longitude,
       management: [{ fullName: managementRow.full_name, position: managementRow.position }],
     })
     expect(absent).toBeUndefined()
@@ -141,5 +145,15 @@ describe('MySQL repositories', () => {
     expect(calls[1]?.values).toEqual([row.id])
     expect(calls[2]?.sql).toContain("e.slug = ? AND e.workflow_status = 'published'")
     expect(calls[2]?.values).toEqual(['unpublished-record'])
+  })
+
+  it('returns an existing profile when its management query has no rows', async () => {
+    const { executor, calls } = createExecutor([[row], []])
+
+    const profile = await new EstablishmentRepository(executor).findPublishedBySlug(row.slug)
+
+    expect(profile).toMatchObject({ slug: row.slug, management: [] })
+    expect(calls[1]?.sql).toContain('FROM entity_management')
+    expect(calls[1]?.values).toEqual([row.id])
   })
 })

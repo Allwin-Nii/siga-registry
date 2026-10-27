@@ -221,6 +221,20 @@ describe('administrator interface', () => {
     restored.unmount()
   })
 
+  it('loads the administrator overview and an existing entity with no management records', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    const overview = renderAdmin('/admin')
+    expect(await screen.findByRole('heading', { name: 'Registry overview' })).toBeInTheDocument()
+    expect(screen.queryByText('The administrator overview is unavailable')).not.toBeInTheDocument()
+    overview.unmount()
+
+    renderAdmin('/admin/establishments/1/edit')
+    expect(await screen.findByRole('heading', { name: 'Edit entity' })).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('Example Entity')).toBeInTheDocument()
+    expect(screen.getByText('No management members have been added.')).toBeInTheDocument()
+  })
+
   it.each([
     '/admin',
     '/admin/establishments',
@@ -260,6 +274,9 @@ describe('administrator interface', () => {
     await user.type(screen.getByLabelText('Email'), 'new@example.test')
     await user.type(screen.getByLabelText('Contact Number'), '+233 302 000 002')
     await user.type(screen.getByLabelText(/^Brief Description/), 'A new entity created through the administrator API.')
+    expect(screen.queryByLabelText('Latitude')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Longitude')).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText('GPS Location (Google Maps Link)'), 'https://www.google.com/maps/place/New+Entity')
     await user.click(screen.getByRole('button', { name: 'Add member' }))
     await user.type(screen.getByLabelText(/^Full name/), 'Ama Mensah')
     await user.type(screen.getByLabelText(/^Position/), 'Managing Director')
@@ -269,7 +286,10 @@ describe('administrator interface', () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/establishments'), expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }) }))
     const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/api/admin/establishments') && (init as RequestInit).method === 'POST')
     if (!createCall) throw new Error('Expected the administrator create request.')
-    expect(JSON.parse(String((createCall[1] as RequestInit).body))).toMatchObject({ management: [{ fullName: 'Ama Mensah', position: 'Managing Director' }] })
+    expect(JSON.parse(String((createCall[1] as RequestInit).body))).toMatchObject({
+      gpsLocationUrl: 'https://www.google.com/maps/place/New+Entity',
+      management: [{ fullName: 'Ama Mensah', position: 'Managing Director' }],
+    })
     const name = screen.getByLabelText(/^Name/)
     await user.clear(name)
     await user.type(name, 'Updated Entity')

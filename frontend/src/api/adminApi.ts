@@ -32,6 +32,7 @@ export type AdministratorEstablishment = {
   city?: string | null
   physicalAddress?: string | null
   gpsAddress?: string | null
+  gpsLocationUrl?: string | null
   latitude?: number | null
   longitude?: number | null
   management?: AdministratorManagementMember[]
@@ -67,8 +68,7 @@ export type AdministratorEstablishmentInput = {
   city: string
   physicalAddress: string
   gpsAddress: string
-  latitude: string
-  longitude: string
+  gpsLocationUrl: string
   management: AdministratorManagementMemberInput[]
 }
 

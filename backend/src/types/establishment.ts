@@ -26,6 +26,7 @@ export type EstablishmentInput = {
   city?: string | null
   physicalAddress?: string | null
   gpsAddress?: string | null
+  gpsLocationUrl?: string | null
   latitude?: number | null
   longitude?: number | null
   management?: ManagementMemberInput[]
@@ -64,6 +65,7 @@ export type EstablishmentRecord = {
   city?: string | null
   physicalAddress?: string | null
   gpsAddress?: string | null
+  gpsLocationUrl?: string | null
   latitude?: number | null
   longitude?: number | null
   management?: ManagementMember[]
@@ -91,6 +93,7 @@ export type PublicEstablishment = {
   city?: string
   physicalAddress?: string
   gpsAddress?: string
+  gpsLocationUrl?: string
   latitude?: number | null
   longitude?: number | null
   management?: ManagementMember[]

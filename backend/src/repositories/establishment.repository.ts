@@ -31,6 +31,7 @@ type EstablishmentRow = RowDataPacket & {
   city: string | null
   physical_address: string | null
   gps_address: string | null
+  gps_location_url: string | null
   latitude: number | null
   longitude: number | null
   category_id: number
@@ -64,6 +65,7 @@ const establishmentColumns = `
   e.city,
   e.physical_address,
   e.gps_address,
+  e.gps_location_url,
   e.latitude,
   e.longitude,
   e.workflow_status,
@@ -107,6 +109,7 @@ const toRecord = (row: EstablishmentRow, management: ManagementMember[] = []): E
   city: row.city,
   physicalAddress: row.physical_address,
   gpsAddress: row.gps_address,
+  gpsLocationUrl: row.gps_location_url,
   latitude: row.latitude == null ? null : Number(row.latitude),
   longitude: row.longitude == null ? null : Number(row.longitude),
   management,
@@ -141,6 +144,7 @@ const toPublicEstablishment = (record: EstablishmentRecord): PublicEstablishment
     city: record.city ?? '',
     physicalAddress: record.physicalAddress ?? '',
     gpsAddress: record.gpsAddress ?? '',
+    gpsLocationUrl: record.gpsLocationUrl ?? '',
     latitude: record.latitude ?? null,
     longitude: record.longitude ?? null,
     management: record.management ?? [],
@@ -276,8 +280,8 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
     const [result] = await executor.execute<ResultSetHeader>(`
       INSERT INTO establishments (
         name, website_url, logo_url, category_id, email, contact_number, summary,
-        region, city, physical_address, gps_address, latitude, longitude, slug, workflow_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
+        region, city, physical_address, gps_address, gps_location_url, latitude, longitude, slug, workflow_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
     `, [
       input.name,
       input.website,
@@ -290,6 +294,7 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
       input.city ?? null,
       input.physicalAddress ?? null,
       input.gpsAddress ?? null,
+      input.gpsLocationUrl ?? null,
       input.latitude ?? null,
       input.longitude ?? null,
       input.slug,
@@ -307,7 +312,7 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
     await executor.execute<ResultSetHeader>(`
       UPDATE establishments
       SET name = ?, website_url = ?, logo_url = ?, category_id = ?, email = ?, contact_number = ?, summary = ?,
-          region = ?, city = ?, physical_address = ?, gps_address = ?, latitude = ?, longitude = ?
+          region = ?, city = ?, physical_address = ?, gps_address = ?, gps_location_url = ?, latitude = ?, longitude = ?
       WHERE id = ?
     `, [
       input.name,
@@ -321,6 +326,7 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
       input.city ?? null,
       input.physicalAddress ?? null,
       input.gpsAddress ?? null,
+      input.gpsLocationUrl ?? null,
       input.latitude ?? null,
       input.longitude ?? null,
       id,

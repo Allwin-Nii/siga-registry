@@ -81,12 +81,17 @@ export class AdministratorEstablishmentService {
     const publishingWasRequested = input.published !== undefined
     try {
       return await this.transactions.runInTransaction(async (transaction) => {
-        await this.getExisting(id, transaction)
+        const existing = await this.getExisting(id, transaction)
         const category = await this.categories.findByCode(validated.categoryCode, transaction)
         if (!category) throw new ValidationError('Invalid establishment input.', { categoryId: 'Choose a configured category.' })
         const duplicate = await this.establishments.findByName(validated.name, transaction)
         if (duplicate && duplicate.id !== id) throw new ConflictError('An establishment with this name already exists.')
-        const updated = await this.establishments.updateEditableRecord(id, { ...validated, categoryDatabaseId: category.id }, transaction)
+        const updated = await this.establishments.updateEditableRecord(id, {
+          ...validated,
+          categoryDatabaseId: category.id,
+          latitude: validated.latitude === undefined ? existing.latitude ?? null : validated.latitude,
+          longitude: validated.longitude === undefined ? existing.longitude ?? null : validated.longitude,
+        }, transaction)
         if (validated.management !== undefined) {
           await this.establishments.replaceManagement(id, validated.management, transaction)
         }
