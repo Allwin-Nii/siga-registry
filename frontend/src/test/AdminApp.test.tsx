@@ -41,6 +41,7 @@ const initialRecord = (): RecordFixture => ({
 })
 
 const fetchMock = vi.fn()
+const scrollTo = vi.fn()
 let sessionActive = false
 let forceEstablishmentError = false
 let records: RecordFixture[] = []
@@ -149,8 +150,10 @@ beforeEach(() => {
   categories = [{ ...category }]
   document.cookie = 'siga_admin_csrf=; Max-Age=0; Path=/'
   fetchMock.mockReset()
+  scrollTo.mockReset()
   configureAdministratorApi()
   vi.stubGlobal('fetch', fetchMock)
+  vi.stubGlobal('scrollTo', scrollTo)
 })
 
 afterEach(() => {

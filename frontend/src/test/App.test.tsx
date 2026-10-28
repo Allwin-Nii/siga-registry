@@ -19,6 +19,7 @@ const establishments: PublicEstablishment[] = [
 ]
 
 const fetchMock = vi.fn()
+const scrollTo = vi.fn()
 let directoryUnavailable = false
 let emptyDirectory = false
 
@@ -66,8 +67,10 @@ beforeEach(() => {
   directoryUnavailable = false
   emptyDirectory = false
   fetchMock.mockReset()
+  scrollTo.mockReset()
   configurePublicApi()
   vi.stubGlobal('fetch', fetchMock)
+  vi.stubGlobal('scrollTo', scrollTo)
 })
 
 afterEach(() => vi.unstubAllGlobals())
@@ -122,6 +125,27 @@ describe('SIGA Registry public API experience', () => {
       expect.stringContaining('category=JVC'),
       expect.any(Object),
     )
+  })
+
+  it('resets scrolling for profile navigation but not directory search or filter updates', async () => {
+    const user = userEvent.setup()
+    renderApp('/directory')
+    await screen.findByText('Electricity Company of Ghana')
+    scrollTo.mockClear()
+
+    await user.type(screen.getByLabelText('Search entities'), 'river')
+    expect(await screen.findByText('Volta River Authority')).toBeInTheDocument()
+    expect(scrollTo).not.toHaveBeenCalled()
+
+    await user.clear(screen.getByLabelText('Search entities'))
+    await screen.findByText('Electricity Company of Ghana')
+    await user.click(screen.getByRole('button', { name: /JVC — Joint Venture Company/ }))
+    expect(await screen.findByText('Ghana Oil Company')).toBeInTheDocument()
+    expect(scrollTo).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('link', { name: /View Entity Details/ }))
+    expect(await screen.findByRole('heading', { name: 'Ghana Oil Company' })).toBeInTheDocument()
+    expect(scrollTo).toHaveBeenCalledWith(0, 0)
   })
 
   it('passes combined category and name filters to the published-only API', async () => {

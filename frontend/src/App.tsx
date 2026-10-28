@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AdminLayout } from './components/AdminLayout'
 import { AdminRoute } from './components/AdminRoute'
 import { SiteLayout } from './components/SiteLayout'
+import { ScrollToTop } from './components/ScrollToTop'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { AdminEstablishmentFormPage } from './pages/AdminEstablishmentFormPage'
 import { AdminEstablishmentListPage } from './pages/AdminEstablishmentListPage'
@@ -12,7 +13,8 @@ import { LandingPage } from './pages/LandingPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 function App() {
-  return (
+  return <>
+    <ScrollToTop />
     <Routes>
       <Route element={<SiteLayout />}>
         <Route index element={<LandingPage />} />
@@ -33,7 +35,7 @@ function App() {
       <Route path="admin/review" element={<Navigate to="/admin" replace />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
-  )
+  </>
 }
 
 export default App
