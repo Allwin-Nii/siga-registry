@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AdminLayout } from './components/AdminLayout'
 import { AdminRoute } from './components/AdminRoute'
 import { SiteLayout } from './components/SiteLayout'
-import { AdminCategoryPage } from './pages/AdminCategoryPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { AdminEstablishmentFormPage } from './pages/AdminEstablishmentFormPage'
 import { AdminEstablishmentListPage } from './pages/AdminEstablishmentListPage'
@@ -27,7 +26,6 @@ function App() {
           <Route path="admin/establishments" element={<AdminEstablishmentListPage />} />
           <Route path="admin/establishments/new" element={<AdminEstablishmentFormPage mode="create" />} />
           <Route path="admin/establishments/:recordId/edit" element={<AdminEstablishmentFormPage mode="edit" />} />
-          <Route path="admin/categories" element={<AdminCategoryPage />} />
         </Route>
       </Route>
       <Route path="sign-in" element={<Navigate to="/admin/login" replace />} />

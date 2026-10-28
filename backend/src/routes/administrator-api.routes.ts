@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { createOriginProtection, createRequireAdministrator, requireCsrfProtection } from '../middleware/administrator-security.js'
 import type { AdministratorAuthenticationService } from '../services/administrator-auth.service.js'
-import type { AdministratorCategoryService } from '../services/administrator-category.service.js'
 import type { AdministratorEstablishmentService } from '../services/administrator-establishment.service.js'
+import type { CategoryReader } from '../repositories/category.repository.js'
 import { clearSessionCookies, createSessionCookies, readCookies, sessionCookieName, type SessionCookieSettings } from '../security/cookies.js'
 import { ValidationError } from '../lib/errors.js'
 import { workflowStatusCodes, type WorkflowStatusCode } from '../types/workflow.js'
@@ -10,7 +10,7 @@ import { workflowStatusCodes, type WorkflowStatusCode } from '../types/workflow.
 export type AdministratorApiServices = {
   authentication: AdministratorAuthenticationService
   establishments: Pick<AdministratorEstablishmentService, 'list' | 'create' | 'update' | 'setPublication' | 'delete'>
-  categories: Pick<AdministratorCategoryService, 'list' | 'create' | 'update' | 'delete'>
+  categories: Pick<CategoryReader, 'list'>
   allowedOrigin: string
   cookieSettings: SessionCookieSettings
 }
@@ -122,21 +122,6 @@ export const createAdministratorApiRouter = ({
 
   router.get('/admin/categories', requireAdministrator, async (_request, response) => {
     response.status(200).json({ data: await categories.list() })
-  })
-
-  router.post('/admin/categories', ...protectMutation, async (request, response) => {
-    response.status(201).json({ data: await categories.create(asRecord(request.body)) })
-  })
-
-  router.patch('/admin/categories/:id', ...protectMutation, async (request, response) => {
-    response.status(200).json({
-      data: await categories.update(parseIdentifier(request.params.id, 'id'), asRecord(request.body)),
-    })
-  })
-
-  router.delete('/admin/categories/:id', ...protectMutation, async (request, response) => {
-    await categories.delete(parseIdentifier(request.params.id, 'id'))
-    response.status(204).end()
   })
 
   return router

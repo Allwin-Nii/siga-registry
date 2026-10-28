@@ -1,6 +1,3 @@
--- SIGA Registry entity profile extension for MySQL 8.
--- Apply manually after the existing migrations. This migration is additive and
--- keeps all pre-existing establishment records valid.
 
 ALTER TABLE establishments
   ADD COLUMN logo_url VARCHAR(2048) NULL AFTER website_url,

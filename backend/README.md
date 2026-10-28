@@ -1,6 +1,6 @@
 # SIGA Registry backend
 
-The SIGA Registry backend is a Node.js, Express, TypeScript, and MySQL 8 API. Public directory content is read-only and available without authentication. Administrator authentication is required for every change to establishments or categories.
+The SIGA Registry backend is a Node.js, Express, TypeScript, and MySQL 8 API. Public directory content is read-only and available without authentication. Administrator authentication is required for every change to establishments. Categories are fixed and read-only.
 
 The React frontend is intentionally not connected or changed in this milestone. Its current preview staff/review screens are documented for replacement in [`../docs/frontend-administrator-plan.md`](../docs/frontend-administrator-plan.md).
 
@@ -44,7 +44,7 @@ Get-Content -Raw .\database\migrations\002_administrator_auth.sql |
 
 Before execution, verify the existing database and check for conflicting pre-existing `administrators` or `administrator_sessions` tables. `CREATE TABLE IF NOT EXISTS` avoids destructive replacement but does not validate a conflicting table definition.
 
-The application account needs `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on `siga_registry.categories`, `siga_registry.establishments`, `siga_registry.administrators`, and `siga_registry.administrator_sessions`. Schema migration privileges remain separate and should be held only by the authorized migration account.
+The application account needs `SELECT` on `siga_registry.categories`, and `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on `siga_registry.establishments`, `siga_registry.administrators`, and `siga_registry.administrator_sessions`. Schema migration privileges remain separate and should be held only by the authorized migration account.
 
 ## Create the first administrator
 
@@ -86,10 +86,7 @@ There is no public registration, staff submission, review, or role-header API. A
 | `PATCH` | `/api/admin/establishments/:id` | Protected update of the six fields; optional `published` boolean. |
 | `PATCH` | `/api/admin/establishments/:id/publication` | Protected direct publish/unpublish with `{ "published": true | false }`. |
 | `DELETE` | `/api/admin/establishments/:id` | Protected delete. |
-| `GET` | `/api/admin/categories` | Authenticated administrator. |
-| `POST` | `/api/admin/categories` | Protected category create. |
-| `PATCH` | `/api/admin/categories/:id` | Protected category update. |
-| `DELETE` | `/api/admin/categories/:id` | Protected category delete if no establishment references it. |
+| `GET` | `/api/admin/categories` | Authenticated administrator read-only category list for entity selection. |
 
 Administrator establishment changes use direct publication state: `published` for public visibility and `draft` when hidden. The legacy `pending_review`, `changes_requested`, and `rejected` enum values and metadata remain intact for database compatibility, but the new administrator API exposes no staff submission or review action.
 
@@ -118,9 +115,9 @@ Content-Type: application/json
 
 - Passwords are hashed with Node.js scrypt using a random salt and fixed memory-cost parameters; plaintext passwords are never stored or logged.
 - Administrator sessions and CSRF values are random 256-bit secrets. The database retains only SHA-256 hashes.
-- SQL uses parameterized queries, including directory filters and all administrator mutations.
+- SQL uses parameterized queries, including directory filters and all administrator entity mutations.
 - All six establishment fields, publication flags, category fields, IDs, query parameters, and login inputs are validated server-side.
-- Category deletion checks references in a transaction and the MySQL foreign key remains the final integrity safeguard.
+- The category repository exposes read operations only; the fixed category definitions and establishment assignments are never modified by the API.
 - Authentication and authorization are enforced by the backend. Frontend visibility, role headers, or local state are not trusted.
 
 ## Error format
@@ -149,4 +146,4 @@ npm test
 npm run build
 ```
 
-Coverage includes anonymous public access, administrator account creation/login/logout, cookie properties, authentication, Origin and CSRF rejection, administrator CRUD authorization, direct publication state, category reference protection, input validation, safe database failures, transactions, and SQL injection resistance.
+Coverage includes anonymous public access, administrator account creation/login/logout, cookie properties, authentication, Origin and CSRF rejection, administrator CRUD authorization, direct publication state, read-only category access, input validation, safe database failures, transactions, and SQL injection resistance.

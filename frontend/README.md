@@ -6,7 +6,7 @@ This React, TypeScript, Vite, React Router, and Tailwind CSS frontend presents t
 
 The public directory, homepage statistics, category links, and entity details use only the anonymous published-record API. They do **not** constitute a complete, certified, or official SIGA directory, and this application is not an official SIGA service. The category and detail-source register for retained historical fixtures is in [../docs/entity-sources.md](../docs/entity-sources.md).
 
-The routable administrator workspace is API-backed: it manages entities, publication state, and categories through protected administrator endpoints. Legacy mock-data and preview components remain in the source tree for now but are no longer exposed by the application routes and do not represent persisted actions.
+The routable administrator workspace is API-backed: it manages entities and publication state through protected administrator endpoints. Its category selector reads the fixed categories; it cannot create, edit, or delete them. Legacy mock-data and preview components remain in the source tree for now but are no longer exposed by the application routes and do not represent persisted actions.
 
 ## Run locally
 
@@ -54,6 +54,5 @@ npm run build
 - `/admin/establishments` — live entity listing, publication, and deletion controls
 - `/admin/establishments/new` — create an entity
 - `/admin/establishments/:id/edit` — edit an entity
-- `/admin/categories` — live category management
 
 The legacy `/sign-in`, `/staff/*`, and `/admin/review` paths redirect to administrator sign-in or the administrator overview instead of exposing local-only workflows.

@@ -54,9 +54,6 @@ const administratorApi = (): AdministratorApiServices => ({
   },
   categories: {
     list: vi.fn(async () => [internalEstablishment.category]),
-    create: vi.fn(async () => internalEstablishment.category),
-    update: vi.fn(async () => internalEstablishment.category),
-    delete: vi.fn(async () => undefined),
   },
   allowedOrigin: origin,
   cookieSettings: { secure: true, sessionTtlSeconds: 3600 },
@@ -130,7 +127,7 @@ describe('administrator-only API', () => {
     expect(admin.establishments.create).not.toHaveBeenCalled()
   })
 
-  it('allows an authenticated administrator to manage establishments and categories', async () => {
+  it('allows an authenticated administrator to manage establishments while categories remain read-only', async () => {
     const admin = administratorApi()
     const create = await request('/api/admin/establishments', admin, {
       method: 'POST', headers: mutationHeaders(), body: JSON.stringify({ name: 'Example Entity' }),
@@ -142,15 +139,16 @@ describe('administrator-only API', () => {
       method: 'PATCH', headers: mutationHeaders(), body: JSON.stringify({ published: false }),
     })
     const deletion = await request('/api/admin/establishments/1', admin, { method: 'DELETE', headers: mutationHeaders() })
-    const categoryCreate = await request('/api/admin/categories', admin, {
-      method: 'POST', headers: mutationHeaders(), body: JSON.stringify({ code: 'NEW', name: 'New', description: 'New category' }),
-    })
+    const categoryList = await request('/api/admin/categories', admin, { headers: { Cookie: `siga_admin_session=${sessionToken}` } })
+    const categoryCreate = await request('/api/admin/categories', admin, { method: 'POST', headers: mutationHeaders(), body: '{}' })
+    const categoryUpdate = await request('/api/admin/categories/1', admin, { method: 'PATCH', headers: mutationHeaders(), body: '{}' })
+    const categoryDeletion = await request('/api/admin/categories/1', admin, { method: 'DELETE', headers: mutationHeaders() })
 
-    expect([create.status, update.status, publication.status, deletion.status, categoryCreate.status]).toEqual([201, 200, 200, 204, 201])
+    expect([create.status, update.status, publication.status, deletion.status, categoryList.status, categoryCreate.status, categoryUpdate.status, categoryDeletion.status]).toEqual([201, 200, 200, 204, 200, 404, 404, 404])
     expect(admin.establishments.create).toHaveBeenCalledOnce()
     expect(admin.establishments.setPublication).toHaveBeenCalledWith(1, false)
     expect(admin.establishments.delete).toHaveBeenCalledWith(1)
-    expect(admin.categories.create).toHaveBeenCalledOnce()
+    expect(admin.categories.list).toHaveBeenCalledOnce()
   })
 
   it('returns safe database errors from protected administrator routes', async () => {

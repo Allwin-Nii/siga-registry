@@ -126,28 +126,6 @@ const configureAdministratorApi = () => {
       return Promise.resolve(json({ data: record }))
     }
     if (path === '/api/admin/categories' && method === 'GET') return Promise.resolve(json({ data: categories }))
-    if (path === '/api/admin/categories' && method === 'POST') {
-      if (csrfHeader(init) !== 'test-csrf-token') return Promise.resolve(json({ error: { code: 'FORBIDDEN', message: 'A valid CSRF token is required.' } }, 403))
-      const created = { id: 2, code: String(body.code), name: String(body.name), description: String(body.description) }
-      categories.push(created)
-      return Promise.resolve(json({ data: created }, 201))
-    }
-    const categoryMatch = path.match(/^\/api\/admin\/categories\/(\d+)$/)
-    if (categoryMatch) {
-      const id = Number(categoryMatch[1])
-      const selected = categories.find((item) => item.id === id)
-      if (!selected) return Promise.resolve(json({ error: { code: 'NOT_FOUND' } }, 404))
-      if (csrfHeader(init) !== 'test-csrf-token') return Promise.resolve(json({ error: { code: 'FORBIDDEN', message: 'A valid CSRF token is required.' } }, 403))
-      if (method === 'DELETE') {
-        if (id === 1) return Promise.resolve(json({ error: { code: 'CONFLICT', message: 'A category with establishment records cannot be deleted.' } }, 409))
-        categories = categories.filter((item) => item.id !== id)
-        return Promise.resolve(new Response(null, { status: 204 }))
-      }
-      selected.code = String(body.code)
-      selected.name = String(body.name)
-      selected.description = String(body.description)
-      return Promise.resolve(json({ data: selected }))
-    }
     return Promise.resolve(json({ error: { code: 'NOT_FOUND' } }, 404))
   })
 }
@@ -240,7 +218,6 @@ describe('administrator interface', () => {
     '/admin/establishments',
     '/admin/establishments/new',
     '/admin/establishments/1/edit',
-    '/admin/categories',
   ])('redirects unauthenticated visitors from %s to administrator login', async (path) => {
     renderAdmin(path)
 
@@ -313,26 +290,18 @@ describe('administrator interface', () => {
     expect(await screen.findByText('Entity deleted.')).toBeInTheDocument()
   })
 
-  it('creates, edits, and safely reports protected category deletion failures', async () => {
+  it('removes category management from administrator navigation and routing', async () => {
     sessionActive = true
     document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
-    const user = userEvent.setup()
+    const overview = renderAdmin('/admin')
+    const navigation = await screen.findByRole('navigation', { name: 'Administrator navigation' })
+    expect(navigation).not.toHaveTextContent('Categories')
+    expect(within(navigation).queryByRole('link', { name: 'Categories' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open categories →' })).not.toBeInTheDocument()
+    overview.unmount()
+
     renderAdmin('/admin/categories')
-    await screen.findByText('State-Owned Enterprise')
-    await user.type(screen.getByLabelText(/^Code/), 'NEW')
-    await user.type(screen.getByLabelText(/^Name/), 'New category')
-    await user.type(screen.getByLabelText(/^Description/), 'New category description')
-    await user.click(screen.getByRole('button', { name: 'Create category' }))
-    expect(await screen.findByText('Category created.')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Edit NEW' }))
-    const categoryName = screen.getByLabelText(/^Name/)
-    await user.clear(categoryName)
-    await user.type(categoryName, 'Updated category')
-    await user.click(screen.getByRole('button', { name: 'Save category' }))
-    expect(await screen.findByText('Category changes saved.')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Delete SOE' }))
-    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirm delete' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('cannot be deleted')
+    expect(await screen.findByRole('heading', { name: 'That page is not here.' })).toBeInTheDocument()
   })
 
   it('shows protected API failures without exposing administration data', async () => {

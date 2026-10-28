@@ -72,12 +72,6 @@ export type AdministratorEstablishmentInput = {
   management: AdministratorManagementMemberInput[]
 }
 
-export type AdministratorCategoryInput = {
-  code: string
-  name: string
-  description: string
-}
-
 export type AdministratorPagination = {
   page: number
   pageSize: number
@@ -259,20 +253,3 @@ export const deleteAdministratorEstablishment = async (id: number, csrfToken: st
 
 export const listAdministratorCategories = async (options?: AdministratorApiRequestOptions): Promise<AdministratorCategory[]> =>
   requireData<AdministratorCategory[]>(await request<DataEnvelope<AdministratorCategory[]>>('/admin/categories', {}, options))
-
-export const createAdministratorCategory = async (
-  input: AdministratorCategoryInput,
-  csrfToken: string,
-): Promise<AdministratorCategory> =>
-  requireData<AdministratorCategory>(await mutation<DataEnvelope<AdministratorCategory>>('POST', '/admin/categories', csrfToken, input))
-
-export const updateAdministratorCategory = async (
-  id: number,
-  input: AdministratorCategoryInput,
-  csrfToken: string,
-): Promise<AdministratorCategory> =>
-  requireData<AdministratorCategory>(await mutation<DataEnvelope<AdministratorCategory>>('PATCH', `/admin/categories/${id}`, csrfToken, input))
-
-export const deleteAdministratorCategory = async (id: number, csrfToken: string) => {
-  await mutation<undefined>('DELETE', `/admin/categories/${id}`, csrfToken)
-}

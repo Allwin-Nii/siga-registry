@@ -7,7 +7,6 @@ import { CategoryRepository } from './repositories/category.repository.js'
 import { EstablishmentRepository } from './repositories/establishment.repository.js'
 import { CategoryService } from './services/category.service.js'
 import { AdministratorAuthService } from './services/administrator-auth.service.js'
-import { AdministratorCategoryService } from './services/administrator-category.service.js'
 import { AdministratorEstablishmentService } from './services/administrator-establishment.service.js'
 import { PublicEstablishmentService } from './services/public-establishment.service.js'
 
@@ -28,7 +27,7 @@ const startServer = () => {
     administratorApi: {
       authentication: new AdministratorAuthService(administratorRepository, transactions, config.security.sessionTtlHours),
       establishments: new AdministratorEstablishmentService(establishmentRepository, categoryRepository, transactions),
-      categories: new AdministratorCategoryService(categoryRepository, transactions),
+      categories: categoryRepository,
       allowedOrigin: config.corsOrigin,
       cookieSettings: {
         secure: config.security.secureCookies,

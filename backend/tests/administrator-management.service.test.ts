@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { DatabaseTransaction, TransactionRunner } from '../src/config/database.js'
-import { ConflictError, ValidationError } from '../src/lib/errors.js'
-import type { CategoryManagerRepository } from '../src/repositories/category.repository.js'
+import { ValidationError } from '../src/lib/errors.js'
+import type { CategoryReader } from '../src/repositories/category.repository.js'
 import type { EstablishmentManagerRepository } from '../src/repositories/establishment.repository.js'
-import { AdministratorCategoryService } from '../src/services/administrator-category.service.js'
 import { AdministratorEstablishmentService } from '../src/services/administrator-establishment.service.js'
 import type { EstablishmentRecord, RegistryCategory } from '../src/types/establishment.js'
 
@@ -49,15 +48,10 @@ const establishmentRepository = () => ({
   listInternalRecords: vi.fn(async () => ({ data: [existing], page: 1, pageSize: 20, total: 1, totalPages: 1 })),
 } satisfies EstablishmentManagerRepository)
 
-const categoryRepository = (references = 0) => ({
+const categoryRepository = () => ({
   list: vi.fn(async () => [category]),
   findByCode: vi.fn(async (code) => code === 'SOE' ? category : undefined),
-  findById: vi.fn(async () => category),
-  create: vi.fn(async () => category),
-  update: vi.fn(async () => category),
-  countEstablishmentReferences: vi.fn(async () => references),
-  deleteById: vi.fn(async () => true),
-} satisfies CategoryManagerRepository)
+} satisfies CategoryReader)
 
 describe('direct administrator management services', () => {
   it('creates, updates, publishes, unpublishes, and deletes records without review transitions', async () => {
@@ -131,19 +125,5 @@ describe('direct administrator management services', () => {
       latitude: 5.6037,
       longitude: -0.187,
     }), transaction)
-  })
-
-  it('allows category CRUD but blocks deletion while an establishment references the category', async () => {
-    const referenced = categoryRepository(1)
-    const referencedService = new AdministratorCategoryService(referenced, transactions)
-    await expect(referencedService.delete(1)).rejects.toBeInstanceOf(ConflictError)
-    expect(referenced.deleteById).not.toHaveBeenCalled()
-
-    const unreferenced = categoryRepository(0)
-    const service = new AdministratorCategoryService(unreferenced, transactions)
-    await expect(service.create({ code: 'NEW', name: 'New', description: 'New category' })).resolves.toEqual(category)
-    await expect(service.update(1, { code: 'SOE', name: 'SOE', description: 'Updated description' })).resolves.toEqual(category)
-    await expect(service.delete(1)).resolves.toBeUndefined()
-    expect(unreferenced.deleteById).toHaveBeenCalledWith(1, transaction)
   })
 })
