@@ -20,6 +20,8 @@ export type PublicEstablishment = {
   name: string
   website: string
   logoUrl?: string
+  coverImageUrl?: string
+  supervisingMinistry?: string
   categoryId: string
   category: PublicCategory
   email: string
@@ -47,12 +49,28 @@ export type PublicDirectory = {
   meta: DirectoryMeta
 }
 
+export type PublicEntityOption = {
+  id: string
+  slug: string
+  name: string
+  categoryCode: string
+}
+
+export type PublicEntityOptions = {
+  data: PublicEntityOption[]
+  meta: DirectoryMeta
+}
+
 export type DirectoryRequest = {
   search?: string
   category?: string
+  entity?: string
+  sort?: 'asc' | 'desc'
   page?: number
   pageSize?: number
 }
+
+export type EntityOptionsRequest = Pick<DirectoryRequest, 'search' | 'category' | 'entity' | 'page' | 'pageSize'>
 
 export type PublicApiRequestOptions = {
   signal?: AbortSignal
@@ -70,6 +88,10 @@ type ApiDataEnvelope<T> = {
 }
 
 type ApiDirectoryEnvelope = ApiDataEnvelope<PublicEstablishment[]> & {
+  meta: DirectoryMeta
+}
+
+type ApiEntityOptionsEnvelope = ApiDataEnvelope<PublicEntityOption[]> & {
   meta: DirectoryMeta
 }
 
@@ -121,7 +143,7 @@ const request = async <T>(path: string, options: PublicApiRequestOptions = {}): 
     const response = await fetch(`${publicApiBaseUrl}${path}`, {
       method: 'GET',
       headers: { Accept: 'application/json' },
-      credentials: 'omit',
+      credentials: 'include',
       signal: controller.signal,
     })
     const body = await readJson(response)
@@ -160,10 +182,31 @@ export const getPublicDirectory = async (
   const parameters = new URLSearchParams()
   if (directory.search?.trim()) parameters.set('search', directory.search.trim())
   if (directory.category?.trim()) parameters.set('category', directory.category.trim())
+  if (directory.entity?.trim()) parameters.set('entity', directory.entity.trim())
+  if (directory.sort === 'desc') parameters.set('sort', 'desc')
   if (directory.page) parameters.set('page', String(directory.page))
   if (directory.pageSize) parameters.set('pageSize', String(directory.pageSize))
   const query = parameters.size > 0 ? `?${parameters.toString()}` : ''
   const body = await request<ApiDirectoryEnvelope>(`/establishments${query}`, options)
+
+  if (!isRecord(body) || !('data' in body) || !('meta' in body)) {
+    throw new PublicApiError('The registry service returned an unexpected response.', 'invalid-response')
+  }
+  return { data: body.data, meta: body.meta }
+}
+
+export const getPublicEntityOptions = async (
+  directory: EntityOptionsRequest = {},
+  options?: PublicApiRequestOptions,
+): Promise<PublicEntityOptions> => {
+  const parameters = new URLSearchParams()
+  if (directory.search?.trim()) parameters.set('search', directory.search.trim())
+  if (directory.category?.trim()) parameters.set('category', directory.category.trim())
+  if (directory.entity?.trim()) parameters.set('entity', directory.entity.trim())
+  if (directory.page) parameters.set('page', String(directory.page))
+  if (directory.pageSize) parameters.set('pageSize', String(directory.pageSize))
+  const query = parameters.size > 0 ? `?${parameters.toString()}` : ''
+  const body = await request<ApiEntityOptionsEnvelope>(`/establishments/options${query}`, options)
 
   if (!isRecord(body) || !('data' in body) || !('meta' in body)) {
     throw new PublicApiError('The registry service returned an unexpected response.', 'invalid-response')

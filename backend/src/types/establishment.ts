@@ -19,6 +19,8 @@ export type EstablishmentInput = {
   categoryId: string
   website: string | null
   logoUrl?: string | null
+  coverImageUrl?: string | null
+  supervisingMinistry?: string | null
   email: string | null
   contactNumber: string | null
   summary: string
@@ -58,6 +60,8 @@ export type EstablishmentRecord = {
   name: string
   website: string | null
   logoUrl?: string | null
+  coverImageUrl?: string | null
+  supervisingMinistry?: string | null
   email: string | null
   contactNumber: string | null
   summary: string
@@ -84,6 +88,8 @@ export type PublicEstablishment = {
   name: string
   website: string
   logoUrl?: string
+  coverImageUrl?: string
+  supervisingMinistry?: string
   categoryId: string
   category: PublicCategory
   email: string
@@ -102,6 +108,23 @@ export type PublicEstablishment = {
 export type DirectoryQuery = {
   search?: string
   categoryCode?: string
+  entitySlug?: string
+  sort?: 'asc' | 'desc'
+  page: number
+  pageSize: number
+}
+
+export type PublicEntityOption = {
+  id: string
+  slug: string
+  name: string
+  categoryCode: string
+}
+
+export type PublicEntityOptionsQuery = {
+  search?: string
+  categoryCode?: string
+  entitySlug?: string
   page: number
   pageSize: number
 }

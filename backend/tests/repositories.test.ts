@@ -24,6 +24,8 @@ const row = {
   name: 'Electricity Company of Ghana',
   website_url: 'https://ecg.com.gh/',
   logo_url: 'https://ecg.com.gh/logo.png',
+  cover_image_url: 'https://ecg.com.gh/cover.jpg',
+  supervising_ministry: 'Ministry of Energy',
   email: 'help@ecggh.com',
   contact_number: '+233 302 611 611',
   summary: 'Electricity distribution utility serving customers across southern Ghana.',
@@ -77,6 +79,7 @@ describe('MySQL repositories', () => {
     const result = await repository.findPublishedDirectory({
       search: 'Electricity',
       categoryCode: 'SOE',
+      sort: 'desc',
       page: 2,
       pageSize: 5,
     })
@@ -88,8 +91,26 @@ describe('MySQL repositories', () => {
     expect(calls[0]?.sql).toContain("LOWER(e.name) LIKE LOWER(?) ESCAPE '!'")
     expect(calls[0]?.sql).toContain('c.code = ?')
     expect(calls[0]?.values).toEqual(['%Electricity%', 'SOE'])
-    expect(calls[1]?.sql).toContain('ORDER BY e.name ASC, e.id ASC')
+    expect(calls[1]?.sql).toContain('ORDER BY e.name DESC, e.id ASC')
     expect(calls[1]?.values).toEqual(['%Electricity%', 'SOE', 5, 5])
+  })
+
+  it('uses small, parameterized published-only option pages for entity selection', async () => {
+    const { executor, calls } = createExecutor([[{ total: 1 }], [{ id: row.id, slug: row.slug, name: row.name, category_code: row.category_code }]])
+    const result = await new EstablishmentRepository(executor).findPublishedEntityOptions({
+      categoryCode: 'SOE', entitySlug: row.slug, page: 2, pageSize: 4,
+    })
+
+    expect(result).toEqual({
+      data: [{ id: String(row.id), slug: row.slug, name: row.name, categoryCode: row.category_code }],
+      page: 2, pageSize: 4, total: 1, totalPages: 1,
+    })
+    expect(calls[0]?.sql).toContain("e.workflow_status = 'published'")
+    expect(calls[0]?.sql).toContain('c.code = ?')
+    expect(calls[0]?.sql).toContain('e.slug = ?')
+    expect(calls[0]?.values).toEqual(['SOE', row.slug])
+    expect(calls[1]?.sql).toContain('ORDER BY e.name ASC, e.id ASC')
+    expect(calls[1]?.values).toEqual(['SOE', row.slug, 4, 4])
   })
 
   it('supports independent name and category filters before they are combined', async () => {
@@ -132,6 +153,8 @@ describe('MySQL repositories', () => {
       slug: row.slug,
       categoryId: 'soe',
       logoUrl: row.logo_url,
+      coverImageUrl: row.cover_image_url,
+      supervisingMinistry: row.supervising_ministry,
       gpsAddress: row.gps_address,
       gpsLocationUrl: row.gps_location_url,
       latitude: row.latitude,

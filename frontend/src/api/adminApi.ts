@@ -25,6 +25,8 @@ export type AdministratorEstablishment = {
   name: string
   website: string | null
   logoUrl?: string | null
+  coverImageUrl?: string | null
+  supervisingMinistry?: string | null
   email: string | null
   contactNumber: string | null
   summary: string
@@ -60,6 +62,8 @@ export type AdministratorEstablishmentInput = {
   name: string
   website: string
   logoUrl: string
+  coverImageUrl: string
+  supervisingMinistry: string
   categoryId: string
   email: string
   contactNumber: string

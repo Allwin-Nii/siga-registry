@@ -1,10 +1,24 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { SigaLogo } from './SigaLogo'
+import { usePublicAuth } from '../state/usePublicAuth'
 
 const navItem = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-3 py-2 text-sm font-bold transition ${isActive ? 'bg-teal-100 text-teal-800' : 'text-slate-600 hover:bg-slate-100 hover:text-navy-900'}`
 
 export function SiteLayout() {
+  const { status, logout } = usePublicAuth()
+  const navigate = useNavigate()
+
+  const signOut = async () => {
+    try {
+      await logout()
+    } catch {
+      // PublicAuthProvider has already cleared client state; the next sign-in restores a verified session only.
+    } finally {
+      navigate('/login', { replace: true })
+    }
+  }
+
   return (
     <div className="min-h-screen bg-sand-50">
       <a className="sr-only focus:not-sr-only focus:absolute focus:left-5 focus:top-5 focus:z-50 focus:rounded focus:bg-white focus:px-4 focus:py-2" href="#main-content">Skip to content</a>
@@ -17,8 +31,9 @@ export function SiteLayout() {
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="min-w-0" aria-label="SIGA Registry home"><SigaLogo className="h-10 w-auto max-w-full sm:h-12" /></NavLink>
           <nav aria-label="Primary navigation" className="order-3 flex w-full items-center gap-1 overflow-x-auto pb-1 sm:order-2 sm:w-auto sm:pb-0">
-            <NavLink to="/" end className={navItem}>Home</NavLink>
-            <NavLink to="/directory" className={navItem}>Entities</NavLink>
+            {status === 'authenticated'
+              ? <><NavLink to="/directory" className={navItem}>Entities</NavLink><NavLink to="/account" className={navItem}>My Account</NavLink><button type="button" onClick={() => void signOut()} className="rounded-md px-3 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-100 hover:text-navy-900">Sign Out</button></>
+              : <NavLink to="/login" className={navItem}>Sign In</NavLink>}
           </nav>
         </div>
       </header>

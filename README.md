@@ -1,10 +1,10 @@
 # SIGA Registry
 
-SIGA Registry is an establishment management and reference system under staged development.
+SIGA Registry is a Specified Entity management and reference system under staged development.
 
 ## Current milestone
 
-Milestone 4, Step 2 connects the React administrator workspace in [`frontend/`](frontend/README.md) to the existing Express/MySQL administrator API. Public homepage, directory, and establishment-detail routes remain anonymous and show published records only. The administrator area uses the server's cookie session and CSRF protections for live establishment and category management.
+Milestone 4, Step 2 connects the React administrator workspace in [`frontend/`](frontend/README.md) to the existing Express/MySQL administrator API. Public homepage, directory, and entity-detail routes remain anonymous and show published records only. The administrator area uses the server's cookie session and CSRF protections for live entity management. The three fixed categories remain available as read-only data for entity selection and public filtering. Existing technical API routes retain their `establishments` naming for compatibility.
 
 ## Planned structure
 

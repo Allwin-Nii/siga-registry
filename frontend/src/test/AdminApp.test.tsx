@@ -248,6 +248,8 @@ describe('administrator interface', () => {
     const user = userEvent.setup()
     renderAdmin('/admin/establishments/new')
     await screen.findByRole('heading', { name: 'Add entity' })
+    expect(screen.getByLabelText('Institution Logo URL')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Institution Cover Image URL'), 'https://new.example.test/cover.jpg')
     await user.type(screen.getByLabelText(/^Name/), 'New Entity')
     await user.type(screen.getByLabelText('Website URL'), 'https://new.example.test')
     await user.selectOptions(screen.getByLabelText(/^Category/), 'SOE')
@@ -267,6 +269,7 @@ describe('administrator interface', () => {
     const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/api/admin/establishments') && (init as RequestInit).method === 'POST')
     if (!createCall) throw new Error('Expected the administrator create request.')
     expect(JSON.parse(String((createCall[1] as RequestInit).body))).toMatchObject({
+      coverImageUrl: 'https://new.example.test/cover.jpg',
       gpsLocationUrl: 'https://www.google.com/maps/place/New+Entity',
       management: [{ fullName: 'Ama Mensah', position: 'Managing Director' }],
     })

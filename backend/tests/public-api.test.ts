@@ -6,15 +6,20 @@ import { NotFoundError } from '../src/lib/errors.js'
 import type { PublicApiServices } from '../src/routes/public-api.routes.js'
 import { CategoryService } from '../src/services/category.service.js'
 import { PublicEstablishmentService } from '../src/services/public-establishment.service.js'
+import { hashSecret } from '../src/security/credentials.js'
 import type { DirectoryQuery, PublicEstablishment } from '../src/types/establishment.js'
 
 const servers: Server[] = []
+const publicSessionToken = 'public-session-token-for-tests'
+const publicCsrfToken = 'public-csrf-token-for-tests'
 
 const published: PublicEstablishment = {
   id: '7',
   slug: 'electricity-company-of-ghana',
   name: 'Electricity Company of Ghana',
   website: 'https://ecg.com.gh/',
+  coverImageUrl: 'https://ecg.com.gh/cover.jpg',
+  supervisingMinistry: 'Ministry of Energy',
   categoryId: 'soe',
   category: { id: 'soe', code: 'SOE', name: 'SOE', description: 'State-Owned Enterprise' },
   email: 'help@ecggh.com',
@@ -23,22 +28,33 @@ const published: PublicEstablishment = {
 }
 
 const defaultServices = (): PublicApiServices => ({
+  authentication: {
+    register: async () => { throw new Error('unused') },
+    login: async () => { throw new Error('unused') },
+    getAuthenticatedSession: async (token) => token === publicSessionToken ? ({
+      id: 1, tokenHash: hashSecret(token), csrfTokenHash: hashSecret(publicCsrfToken), expiresAt: new Date('2026-11-03T00:00:00.000Z'), publicUser: { id: 1, email: 'visitor@example.test' },
+    }) : undefined,
+    logout: async () => undefined,
+  },
   categories: {
     listCategories: async () => [published.category],
   },
   establishments: {
     getDirectory: async () => ({ data: [published], page: 1, pageSize: 20, total: 1, totalPages: 1 }),
+    getEntityOptions: async () => ({ data: [{ id: published.id, slug: published.slug, name: published.name, categoryCode: published.category.code }], page: 1, pageSize: 20, total: 1, totalPages: 1 }),
     getPublishedBySlug: async () => published,
   },
 })
 
-const request = async (path: string, publicApi: PublicApiServices, init?: RequestInit) => {
+const request = async (path: string, publicApi: PublicApiServices, init?: RequestInit, authenticated = true) => {
   const server = createApp({ corsOrigin: 'http://localhost:5173', publicApi }).listen(0)
   servers.push(server)
   await once(server, 'listening')
   const address = server.address()
   if (!address || typeof address === 'string') throw new Error('Test server did not bind to a TCP port.')
-  return fetch(`http://127.0.0.1:${address.port}${path}`, init)
+  const headers = new Headers(init?.headers)
+  if (authenticated) headers.set('Cookie', `siga_public_session=${publicSessionToken}`)
+  return fetch(`http://127.0.0.1:${address.port}${path}`, { ...init, headers })
 }
 
 afterEach(async () => {
@@ -46,7 +62,14 @@ afterEach(async () => {
 })
 
 describe('public API routes', () => {
-  it('returns configured categories using the standard data envelope', async () => {
+  it('requires public authentication before exposing registry content', async () => {
+    const services = defaultServices()
+    for (const path of ['/api/categories', '/api/establishments', `/api/establishments/${published.slug}`, '/api/establishments/options']) {
+      expect((await request(path, services, undefined, false)).status).toBe(401)
+    }
+  })
+
+  it('returns configured categories using the standard data envelope to public users', async () => {
     const response = await request('/api/categories', defaultServices())
 
     expect(response.status).toBe(200)
@@ -64,10 +87,31 @@ describe('public API routes', () => {
     const response = await request('/api/establishments?search=Electricity&category=soe&page=2&pageSize=5', services)
 
     expect(response.status).toBe(200)
-    expect(receivedQuery).toEqual({ search: 'Electricity', categoryCode: 'SOE', page: 2, pageSize: 5 })
+    expect(receivedQuery).toEqual({ search: 'Electricity', categoryCode: 'SOE', sort: 'asc', page: 2, pageSize: 5 })
     await expect(response.json()).resolves.toMatchObject({
-      data: [expect.objectContaining({ slug: published.slug })],
+      data: [expect.objectContaining({
+        slug: published.slug,
+        coverImageUrl: published.coverImageUrl,
+      })],
       meta: { page: 2, pageSize: 5, total: 1, totalPages: 1 },
+    })
+  })
+
+  it('returns small, published-only entity-option pages for the category-aware entity picker', async () => {
+    let receivedQuery: { categoryCode?: string; entitySlug?: string; page: number; pageSize: number } | undefined
+    const services = defaultServices()
+    services.establishments.getEntityOptions = async (query) => {
+      receivedQuery = query
+      return { data: [{ id: published.id, slug: published.slug, name: published.name, categoryCode: published.category.code }], page: query.page, pageSize: query.pageSize, total: 1, totalPages: 1 }
+    }
+
+    const response = await request('/api/establishments/options?category=soe&entity=electricity-company-of-ghana&page=2&pageSize=4', services)
+
+    expect(response.status).toBe(200)
+    expect(receivedQuery).toEqual({ categoryCode: 'SOE', entitySlug: published.slug, page: 2, pageSize: 4 })
+    await expect(response.json()).resolves.toEqual({
+      data: [{ id: published.id, slug: published.slug, name: published.name, categoryCode: 'SOE' }],
+      meta: { page: 2, pageSize: 4, total: 1, totalPages: 1 },
     })
   })
 
@@ -76,7 +120,12 @@ describe('public API routes', () => {
     const body = await response.json() as { data: Record<string, unknown> }
 
     expect(response.status).toBe(200)
-    expect(body.data).toMatchObject({ name: published.name, website: published.website, category: published.category })
+    expect(body.data).toMatchObject({
+      name: published.name,
+      website: published.website,
+      category: published.category,
+      coverImageUrl: published.coverImageUrl,
+    })
     expect(body.data).not.toHaveProperty('workflowStatus')
     expect(body.data).not.toHaveProperty('reviewFeedback')
     expect(body.data).not.toHaveProperty('submittedAt')
@@ -101,6 +150,9 @@ describe('public API routes', () => {
     const invalidQueryResponse = await request('/api/establishments?page=0', defaultServices())
     expect(invalidQueryResponse.status).toBe(400)
     await expect(invalidQueryResponse.json()).resolves.toMatchObject({ error: { code: 'VALIDATION_ERROR' } })
+
+    const invalidSortResponse = await request('/api/establishments?sort=random-order', defaultServices())
+    expect(invalidSortResponse.status).toBe(400)
 
     const writeResponse = await request('/api/establishments', defaultServices(), { method: 'POST' })
     expect(writeResponse.status).toBe(404)

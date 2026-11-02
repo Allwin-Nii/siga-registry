@@ -4,6 +4,7 @@ import { ConflictError, InvalidCredentialsError, ValidationError } from '../src/
 import type { AdministratorRepositoryPort } from '../src/repositories/administrator.repository.js'
 import { AdministratorAuthService } from '../src/services/administrator-auth.service.js'
 import { createSessionCookies, readCookies } from '../src/security/cookies.js'
+import { createPublicSessionCookies } from '../src/security/public-cookies.js'
 import { hashPassword, hashSecret, secretsMatch, verifyPassword } from '../src/security/credentials.js'
 import type { Administrator } from '../src/types/administrator.js'
 
@@ -76,5 +77,12 @@ describe('administrator credentials and sessions', () => {
     expect(cookies[1]).toContain('Path=/')
     expect(cookies[1]).not.toContain('Path=/api')
     expect(readCookies('siga_admin_session=session-token; siga_admin_csrf=csrf-token').get('siga_admin_csrf')).toBe('csrf-token')
+
+    const publicCookies = createPublicSessionCookies('public-session-token', 'public-csrf-token', { secure: true, sessionTtlSeconds: 3600 })
+    expect(publicCookies[0]).toContain('Path=/api')
+    expect(publicCookies[0]).not.toContain('Path=/api/public/auth')
+    expect(publicCookies[0]).toContain('HttpOnly')
+    expect(publicCookies[2]).toContain('Path=/api/public/auth')
+    expect(publicCookies[2]).toContain('Max-Age=0')
   })
 })

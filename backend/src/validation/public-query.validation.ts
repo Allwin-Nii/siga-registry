@@ -29,10 +29,14 @@ const parsePositiveInteger = (value: string | undefined, field: string, fallback
 export const parseDirectoryQuery = (query: Record<string, QueryValue>): DirectoryQuery => {
   const rawSearch = oneValue(query.search, 'search')
   const rawCategory = oneValue(query.category, 'category')
+  const rawEntity = oneValue(query.entity, 'entity')
+  const rawSort = oneValue(query.sort, 'sort')
   const rawPage = oneValue(query.page, 'page')
   const rawPageSize = oneValue(query.pageSize, 'pageSize')
   const search = rawSearch?.trim()
   const categoryCode = rawCategory?.trim().toUpperCase()
+  const entitySlug = rawEntity?.trim().toLowerCase()
+  const sort = rawSort?.trim().toLowerCase() || 'asc'
 
   if (search && search.length > 120) {
     throw new ValidationError('Invalid query parameters.', { search: 'Use at most 120 characters.' })
@@ -40,12 +44,31 @@ export const parseDirectoryQuery = (query: Record<string, QueryValue>): Director
   if (categoryCode && !/^[A-Z]{3}$/.test(categoryCode)) {
     throw new ValidationError('Invalid query parameters.', { category: 'Use a configured three-letter category code.' })
   }
+  if (entitySlug && (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entitySlug) || entitySlug.length > 160)) {
+    throw new ValidationError('Invalid query parameters.', { entity: 'Use a valid entity identifier.' })
+  }
+  if (sort !== 'asc' && sort !== 'desc') {
+    throw new ValidationError('Invalid query parameters.', { sort: 'Use asc or desc.' })
+  }
 
   return {
     ...(search ? { search } : {}),
     ...(categoryCode ? { categoryCode } : {}),
+    ...(entitySlug ? { entitySlug } : {}),
+    sort,
     page: parsePositiveInteger(rawPage, 'page', 1, MAX_PAGE),
     pageSize: parsePositiveInteger(rawPageSize, 'pageSize', 20, MAX_PAGE_SIZE),
+  }
+}
+
+export const parseEntityOptionsQuery = (query: Record<string, QueryValue>) => {
+  const directory = parseDirectoryQuery(query)
+  return {
+    ...(directory.search ? { search: directory.search } : {}),
+    ...(directory.categoryCode ? { categoryCode: directory.categoryCode } : {}),
+    ...(directory.entitySlug ? { entitySlug: directory.entitySlug } : {}),
+    page: directory.page,
+    pageSize: directory.pageSize,
   }
 }
 

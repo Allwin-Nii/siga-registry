@@ -6,6 +6,8 @@ import type {
   ManagementMember,
   ValidatedManagementMemberInput,
   PaginatedResult,
+  PublicEntityOption,
+  PublicEntityOptionsQuery,
   PublicEstablishment,
   RegistryCategory,
   ValidatedEstablishmentInput,
@@ -18,6 +20,8 @@ type EstablishmentRow = RowDataPacket & {
   name: string
   website_url: string | null
   logo_url: string | null
+  cover_image_url: string | null
+  supervising_ministry: string | null
   email: string | null
   contact_number: string | null
   summary: string
@@ -52,15 +56,24 @@ type ManagementRow = RowDataPacket & {
 
 type CountRow = RowDataPacket & { total: number }
 
+type PublicEntityOptionRow = RowDataPacket & {
+  id: number
+  slug: string
+  name: string
+  category_code: string
+}
+
 const establishmentColumns = `
   e.id,
   e.slug,
   e.name,
   e.website_url,
   e.logo_url,
+  e.cover_image_url,
   e.email,
   e.contact_number,
   e.summary,
+  e.supervising_ministry,
   e.region,
   e.city,
   e.physical_address,
@@ -102,6 +115,8 @@ const toRecord = (row: EstablishmentRow, management: ManagementMember[] = []): E
   name: row.name,
   website: row.website_url,
   logoUrl: row.logo_url,
+  coverImageUrl: row.cover_image_url,
+  supervisingMinistry: row.supervising_ministry,
   email: row.email,
   contactNumber: row.contact_number,
   summary: row.summary,
@@ -130,6 +145,8 @@ const toPublicEstablishment = (record: EstablishmentRecord): PublicEstablishment
     name: record.name,
     website: record.website ?? '',
     logoUrl: record.logoUrl ?? '',
+    coverImageUrl: record.coverImageUrl ?? '',
+    supervisingMinistry: record.supervisingMinistry ?? '',
     categoryId,
     category: {
       id: categoryId,
@@ -153,7 +170,7 @@ const toPublicEstablishment = (record: EstablishmentRecord): PublicEstablishment
 
 const escapeLike = (value: string) => value.replace(/[!%_]/g, (character) => `!${character}`)
 
-const createPublicConditions = (query: DirectoryQuery) => {
+const createPublicConditions = (query: Pick<DirectoryQuery, 'search' | 'categoryCode' | 'entitySlug'>) => {
   const conditions = ["e.workflow_status = 'published'"]
   const parameters: (string | number)[] = []
 
@@ -164,6 +181,10 @@ const createPublicConditions = (query: DirectoryQuery) => {
   if (query.categoryCode) {
     conditions.push('c.code = ?')
     parameters.push(query.categoryCode)
+  }
+  if (query.entitySlug) {
+    conditions.push('e.slug = ?')
+    parameters.push(query.entitySlug)
   }
 
   return { clause: conditions.join(' AND '), parameters }
@@ -186,6 +207,7 @@ export type InternalRecordQuery = {
 
 export interface EstablishmentReader {
   findPublishedDirectory(query: DirectoryQuery): Promise<PaginatedResult<PublicEstablishment>>
+  findPublishedEntityOptions(query: PublicEntityOptionsQuery): Promise<PaginatedResult<PublicEntityOption>>
   findPublishedBySlug(slug: string): Promise<PublicEstablishment | undefined>
 }
 
@@ -217,13 +239,40 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
       FROM establishments e
       INNER JOIN categories c ON c.id = e.category_id
       WHERE ${clause}
-      ORDER BY e.name ASC, e.id ASC
+      ORDER BY e.name ${query.sort === 'desc' ? 'DESC' : 'ASC'}, e.id ASC
       LIMIT ? OFFSET ?
     `, [...parameters, query.pageSize, (query.page - 1) * query.pageSize])
     const total = Number(countRows[0]?.total ?? 0)
 
     return {
       data: rows.map((row) => toPublicEstablishment(toRecord(row))),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.ceil(total / query.pageSize),
+    }
+  }
+
+  async findPublishedEntityOptions(query: PublicEntityOptionsQuery): Promise<PaginatedResult<PublicEntityOption>> {
+    const { clause, parameters } = createPublicConditions(query)
+    const [countRows] = await this.database.execute<CountRow[]>(`
+      SELECT COUNT(*) AS total
+      FROM establishments e
+      INNER JOIN categories c ON c.id = e.category_id
+      WHERE ${clause}
+    `, parameters)
+    const [rows] = await this.database.execute<PublicEntityOptionRow[]>(`
+      SELECT e.id, e.slug, e.name, c.code AS category_code
+      FROM establishments e
+      INNER JOIN categories c ON c.id = e.category_id
+      WHERE ${clause}
+      ORDER BY e.name ASC, e.id ASC
+      LIMIT ? OFFSET ?
+    `, [...parameters, query.pageSize, (query.page - 1) * query.pageSize])
+    const total = Number(countRows[0]?.total ?? 0)
+
+    return {
+      data: rows.map((row) => ({ id: String(row.id), slug: row.slug, name: row.name, categoryCode: row.category_code })),
       page: query.page,
       pageSize: query.pageSize,
       total,
@@ -279,17 +328,19 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
   async createDraft(input: CreateDraftRecord, executor: DatabaseExecutor = this.database): Promise<EstablishmentRecord> {
     const [result] = await executor.execute<ResultSetHeader>(`
       INSERT INTO establishments (
-        name, website_url, logo_url, category_id, email, contact_number, summary,
+        name, website_url, logo_url, cover_image_url, category_id, email, contact_number, summary, supervising_ministry,
         region, city, physical_address, gps_address, gps_location_url, latitude, longitude, slug, workflow_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
     `, [
       input.name,
       input.website,
       input.logoUrl ?? null,
+      input.coverImageUrl ?? null,
       input.categoryDatabaseId,
       input.email,
       input.contactNumber,
       input.summary,
+      input.supervisingMinistry ?? null,
       input.region ?? null,
       input.city ?? null,
       input.physicalAddress ?? null,
@@ -311,17 +362,19 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
   ): Promise<EstablishmentRecord> {
     await executor.execute<ResultSetHeader>(`
       UPDATE establishments
-      SET name = ?, website_url = ?, logo_url = ?, category_id = ?, email = ?, contact_number = ?, summary = ?,
+      SET name = ?, website_url = ?, logo_url = ?, cover_image_url = ?, category_id = ?, email = ?, contact_number = ?, summary = ?, supervising_ministry = ?,
           region = ?, city = ?, physical_address = ?, gps_address = ?, gps_location_url = ?, latitude = ?, longitude = ?
       WHERE id = ?
     `, [
       input.name,
       input.website,
       input.logoUrl ?? null,
+      input.coverImageUrl ?? null,
       input.categoryDatabaseId,
       input.email,
       input.contactNumber,
       input.summary,
+      input.supervisingMinistry ?? null,
       input.region ?? null,
       input.city ?? null,
       input.physicalAddress ?? null,

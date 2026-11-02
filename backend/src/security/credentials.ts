@@ -24,6 +24,8 @@ const deriveKey = (password: string, salt: Buffer) => new Promise<Buffer>((resol
 export const normalizeAdministratorEmail = (value: unknown) =>
   typeof value === 'string' ? value.trim().toLocaleLowerCase() : ''
 
+export const normalizePublicEmail = normalizeAdministratorEmail
+
 export const validateAdministratorCredentials = (emailValue: unknown, passwordValue: unknown) => {
   const email = normalizeAdministratorEmail(emailValue)
   const password = typeof passwordValue === 'string' ? passwordValue : ''
@@ -32,6 +34,17 @@ export const validateAdministratorCredentials = (emailValue: unknown, passwordVa
   if (email.length > 254 || !/^\S+@\S+\.\S+$/.test(email)) errors.email = 'Enter a valid administrator email address.'
   if (password.length < 12 || password.length > 128) errors.password = 'Use a password between 12 and 128 characters.'
   if (Object.keys(errors).length > 0) throw new ValidationError('Invalid administrator account input.', errors)
+  return { email, password }
+}
+
+export const validatePublicCredentials = (emailValue: unknown, passwordValue: unknown) => {
+  const email = normalizePublicEmail(emailValue)
+  const password = typeof passwordValue === 'string' ? passwordValue : ''
+  const errors: Record<string, string> = {}
+
+  if (email.length > 254 || !/^\S+@\S+\.\S+$/.test(email)) errors.email = 'Enter a valid email address.'
+  if (password.length < 12 || password.length > 128) errors.password = 'Use a password between 12 and 128 characters.'
+  if (Object.keys(errors).length > 0) throw new ValidationError('Invalid public account input.', errors)
   return { email, password }
 }
 

@@ -59,6 +59,13 @@ export class ForbiddenError extends ApiError {
   }
 }
 
+export class RateLimitError extends ApiError {
+  constructor() {
+    super('Too many authentication attempts. Please try again later.', 429, 'RATE_LIMITED')
+    this.name = 'RateLimitError'
+  }
+}
+
 export const isDuplicateKeyError = (error: unknown) =>
   typeof error === 'object' && error !== null && 'code' in error && error.code === 'ER_DUP_ENTRY'
 

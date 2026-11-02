@@ -79,6 +79,8 @@ export const validateEstablishmentInput = (input: Partial<EstablishmentInput>): 
   const categoryCode = normalizeWhitespace(asText(input.categoryId)).toUpperCase()
   const website = optionalText(input.website)
   const logoUrl = optionalText(input.logoUrl)
+  const coverImageUrl = optionalText(input.coverImageUrl)
+  const supervisingMinistry = optionalText(input.supervisingMinistry)
   const email = optionalText(input.email)
   const contactNumber = optionalText(input.contactNumber)
   const summary = normalizeWhitespace(asText(input.summary))
@@ -99,6 +101,12 @@ export const validateEstablishmentInput = (input: Partial<EstablishmentInput>): 
   }
   if (logoUrl && (logoUrl.length > 2048 || !validUrl(logoUrl, ['https:']))) {
     errors.logoUrl = 'Enter a valid HTTPS logo URL of at most 2048 characters.'
+  }
+  if (coverImageUrl && (coverImageUrl.length > 2048 || !validUrl(coverImageUrl, ['https:']))) {
+    errors.coverImageUrl = 'Enter a valid HTTPS cover image URL of at most 2048 characters.'
+  }
+  if (supervisingMinistry && supervisingMinistry.length > 160) {
+    errors.supervisingMinistry = 'Enter a supervising ministry of at most 160 characters.'
   }
   if (email && (email.length > 254 || !/^\S+@\S+\.\S+$/.test(email))) {
     errors.email = 'Enter a valid email address of at most 254 characters.'
@@ -129,6 +137,8 @@ export const validateEstablishmentInput = (input: Partial<EstablishmentInput>): 
     categoryCode,
     website,
     logoUrl,
+    coverImageUrl,
+    supervisingMinistry,
     email,
     contactNumber,
     summary,

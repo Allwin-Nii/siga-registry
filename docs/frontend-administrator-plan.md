@@ -6,9 +6,9 @@ Milestone 4, Step 2 replaces the routeable administrator previews with an API-ba
 
 - `/`, `/directory`, and `/establishments/:slug` remain public and anonymous.
 - `/admin/login` uses `POST /api/admin/auth/login` and redirects a successful administrator to the requested protected route or `/admin`.
-- `/admin` loads live establishment and category totals.
-- `/admin/establishments`, `/admin/establishments/new`, and `/admin/establishments/:id/edit` manage records through the protected administrator API, including publication and confirmed deletion.
-- `/admin/categories` manages categories and reports referential-integrity deletion failures safely.
+- `/admin` loads live entity and category totals.
+- `/admin/establishments`, `/admin/establishments/new`, and `/admin/establishments/:id/edit` manage entity records through the protected administrator API, including publication and confirmed deletion. Their paths retain the backend's `establishments` name for compatibility.
+- Categories are fixed and exposed only through read-only API data for entity selection and public filtering; there is no administrator category-management route.
 - `/sign-in`, `/staff/*`, and `/admin/review` redirect away from the old local-only simulation routes.
 
 ## Session and request security

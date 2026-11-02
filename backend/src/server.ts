@@ -3,10 +3,12 @@ import { createApp } from './app.js'
 import { checkDatabaseConnection, createDatabasePool, createTransactionRunner } from './config/database.js'
 import { loadEnvironment } from './config/env.js'
 import { AdministratorRepository } from './repositories/administrator.repository.js'
+import { PublicUserRepository } from './repositories/public-user.repository.js'
 import { CategoryRepository } from './repositories/category.repository.js'
 import { EstablishmentRepository } from './repositories/establishment.repository.js'
 import { CategoryService } from './services/category.service.js'
 import { AdministratorAuthService } from './services/administrator-auth.service.js'
+import { PublicAuthService } from './services/public-auth.service.js'
 import { AdministratorEstablishmentService } from './services/administrator-establishment.service.js'
 import { PublicEstablishmentService } from './services/public-establishment.service.js'
 
@@ -16,18 +18,29 @@ const startServer = () => {
   const categoryRepository = new CategoryRepository(pool)
   const establishmentRepository = new EstablishmentRepository(pool)
   const administratorRepository = new AdministratorRepository(pool)
+  const publicUserRepository = new PublicUserRepository(pool)
   const transactions = createTransactionRunner(pool)
+  const publicAuthentication = new PublicAuthService(publicUserRepository, transactions, config.security.sessionTtlHours)
   const app = createApp({
     corsOrigin: config.corsOrigin,
     checkDatabase: () => checkDatabaseConnection(pool),
     publicApi: {
       categories: new CategoryService(categoryRepository),
       establishments: new PublicEstablishmentService(establishmentRepository),
+      authentication: publicAuthentication,
     },
     administratorApi: {
       authentication: new AdministratorAuthService(administratorRepository, transactions, config.security.sessionTtlHours),
       establishments: new AdministratorEstablishmentService(establishmentRepository, categoryRepository, transactions),
       categories: categoryRepository,
+      allowedOrigin: config.corsOrigin,
+      cookieSettings: {
+        secure: config.security.secureCookies,
+        sessionTtlSeconds: config.security.sessionTtlHours * 60 * 60,
+      },
+    },
+    publicAuthApi: {
+      authentication: publicAuthentication,
       allowedOrigin: config.corsOrigin,
       cookieSettings: {
         secure: config.security.secureCookies,

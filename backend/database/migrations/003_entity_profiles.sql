@@ -5,9 +5,7 @@ ALTER TABLE establishments
   ADD COLUMN city VARCHAR(120) NULL AFTER region,
   ADD COLUMN physical_address VARCHAR(500) NULL AFTER city,
   ADD COLUMN gps_address VARCHAR(64) NULL AFTER physical_address,
-  ADD COLUMN latitude DECIMAL(10,7) NULL AFTER gps_address,
-  ADD COLUMN longitude DECIMAL(10,7) NULL AFTER latitude;
-
+ 
 CREATE TABLE entity_management (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   establishment_id BIGINT UNSIGNED NOT NULL,

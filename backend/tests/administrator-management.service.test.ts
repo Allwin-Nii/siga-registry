@@ -36,6 +36,7 @@ const transactions: TransactionRunner = { runInTransaction: async (work) => work
 
 const establishmentRepository = () => ({
   findPublishedDirectory: vi.fn(),
+  findPublishedEntityOptions: vi.fn(),
   findPublishedBySlug: vi.fn(),
   findById: vi.fn(async () => existing),
   findByName: vi.fn(async () => undefined),
@@ -85,6 +86,7 @@ describe('direct administrator management services', () => {
     const service = new AdministratorEstablishmentService(establishments, categories, transactions)
 
     await expect(service.create({ ...input, logoUrl: 'http://images.example.test/logo.png' })).rejects.toBeInstanceOf(ValidationError)
+    await expect(service.create({ ...input, coverImageUrl: 'http://images.example.test/cover.jpg' })).rejects.toBeInstanceOf(ValidationError)
     await expect(service.create({ ...input, gpsAddress: 'not-a-gps-address' })).rejects.toBeInstanceOf(ValidationError)
     await expect(service.create({ ...input, latitude: 91, longitude: 0 })).rejects.toBeInstanceOf(ValidationError)
     await expect(service.create({ ...input, latitude: 5.6, longitude: null })).rejects.toBeInstanceOf(ValidationError)
@@ -100,6 +102,7 @@ describe('direct administrator management services', () => {
     await service.update(1, {
       ...input,
       logoUrl: 'https://images.example.test/logo.png',
+      coverImageUrl: 'https://images.example.test/cover.jpg',
       region: 'Greater Accra',
       city: 'Accra',
       gpsAddress: 'GA-123-4567',
@@ -112,6 +115,10 @@ describe('direct administrator management services', () => {
     expect(establishments.replaceManagement).toHaveBeenCalledWith(1, [{
       fullName: 'Ama Mensah', position: 'Managing Director', officialEmail: null, officialPhone: null, displayOrder: 0,
     }], transaction)
+    expect(establishments.updateEditableRecord).toHaveBeenCalledWith(1, expect.objectContaining({
+      logoUrl: 'https://images.example.test/logo.png',
+      coverImageUrl: 'https://images.example.test/cover.jpg',
+    }), transaction)
   })
 
   it('keeps stored coordinates when the administrator form omits them', async () => {

@@ -2,6 +2,7 @@ import cors from 'cors'
 import express from 'express'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
 import { createAdministratorApiRouter, type AdministratorApiServices } from './routes/administrator-api.routes.js'
+import { createPublicAuthRouter, type PublicAuthApiServices } from './routes/public-auth.routes.js'
 import { createPublicApiRouter, type PublicApiServices } from './routes/public-api.routes.js'
 import { createHealthRouter, type DatabaseHealthCheck } from './routes/health.routes.js'
 
@@ -10,9 +11,10 @@ export type CreateAppOptions = {
   checkDatabase?: DatabaseHealthCheck
   publicApi?: PublicApiServices
   administratorApi?: AdministratorApiServices
+  publicAuthApi?: PublicAuthApiServices
 }
 
-export const createApp = ({ corsOrigin, checkDatabase, publicApi, administratorApi }: CreateAppOptions) => {
+export const createApp = ({ corsOrigin, checkDatabase, publicApi, administratorApi, publicAuthApi }: CreateAppOptions) => {
   const app = express()
 
   app.use(cors({ origin: corsOrigin, credentials: true }))
@@ -20,6 +22,7 @@ export const createApp = ({ corsOrigin, checkDatabase, publicApi, administratorA
   app.use('/api', createHealthRouter(checkDatabase))
   if (publicApi) app.use('/api', createPublicApiRouter(publicApi))
   if (administratorApi) app.use('/api', createAdministratorApiRouter(administratorApi))
+  if (publicAuthApi) app.use('/api', createPublicAuthRouter(publicAuthApi))
   app.use(notFoundHandler)
   app.use(errorHandler)
 

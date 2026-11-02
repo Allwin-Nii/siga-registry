@@ -12,6 +12,7 @@ const servers: Server[] = []
 const origin = 'http://localhost:5173'
 const sessionToken = 'session-token-for-tests'
 const csrfToken = 'csrf-token-for-tests'
+const publicSessionToken = 'public-session-token-for-tests'
 
 const publicEstablishment: PublicEstablishment = {
   id: '1', slug: 'example-entity', name: 'Example Entity', website: 'https://example.test/', categoryId: 'soe',
@@ -27,9 +28,18 @@ const internalEstablishment: EstablishmentRecord = {
 }
 
 const publicApi = (): PublicApiServices => ({
+  authentication: {
+    register: vi.fn(),
+    login: vi.fn(),
+    getAuthenticatedSession: vi.fn(async (token) => token === publicSessionToken ? ({
+      id: 1, tokenHash: hashSecret(token), csrfTokenHash: hashSecret('public-csrf-token'), expiresAt: new Date(), publicUser: { id: 1, email: 'visitor@example.test' },
+    }) : undefined),
+    logout: vi.fn(),
+  },
   categories: { listCategories: async () => [publicEstablishment.category] },
   establishments: {
     getDirectory: async () => ({ data: [publicEstablishment], page: 1, pageSize: 20, total: 1, totalPages: 1 }),
+    getEntityOptions: async () => ({ data: [{ id: publicEstablishment.id, slug: publicEstablishment.slug, name: publicEstablishment.name, categoryCode: publicEstablishment.category.code }], page: 1, pageSize: 20, total: 1, totalPages: 1 }),
     getPublishedBySlug: async () => publicEstablishment,
   },
 })
@@ -80,13 +90,17 @@ afterEach(async () => {
 })
 
 describe('administrator-only API', () => {
-  it('keeps category and directory public for anonymous visitors', async () => {
+  it('requires a public session for registry content while keeping administrator authorization separate', async () => {
     const admin = administratorApi()
     const categories = await request('/api/categories', admin)
     const directory = await request('/api/establishments', admin)
+    const publicCategories = await request('/api/categories', admin, { headers: { Cookie: `siga_public_session=${publicSessionToken}` } })
+    const publicDirectory = await request('/api/establishments', admin, { headers: { Cookie: `siga_public_session=${publicSessionToken}` } })
 
-    expect(categories.status).toBe(200)
-    expect(directory.status).toBe(200)
+    expect(categories.status).toBe(401)
+    expect(directory.status).toBe(401)
+    expect(publicCategories.status).toBe(200)
+    expect(publicDirectory.status).toBe(200)
   })
 
   it('logs an administrator in and out with strict, secure cookies', async () => {
