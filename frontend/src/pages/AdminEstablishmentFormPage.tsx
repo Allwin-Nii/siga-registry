@@ -165,16 +165,16 @@ export function AdminEstablishmentFormPage({ mode }: { mode: 'create' | 'edit' }
   if (resource.loading) return <div className="mx-auto max-w-3xl px-4 py-20 text-center" role="status">Loading entity form…</div>
   if (resource.error) {
     const missing = resource.error instanceof AdministratorApiError && resource.error.status === 404
-    return <div className="mx-auto max-w-3xl px-4 py-20 text-center" role="alert"><h1 className="text-3xl font-black text-navy-950">{missing ? 'Entity not found' : 'The entity form is unavailable'}</h1><p className="mt-3 text-slate-600">{missing ? 'That administrator record is unavailable.' : resource.error.message}</p><Link to="/admin/establishments" className="mt-6 inline-flex rounded-lg bg-navy-950 px-4 py-2.5 text-sm font-bold text-white">Back to entities</Link></div>
+    return <div className="mx-auto max-w-3xl px-4 py-20 text-center" role="alert"><h1 className="text-3xl font-black text-navy-950">{missing ? 'Entity not found' : 'The entity form is unavailable'}</h1><p className="mt-3 text-slate-600">{missing ? 'That administrator record is unavailable.' : resource.error.message}</p><Link to="/admin/establishments" className="mt-6 inline-flex rounded-lg bg-navy-950 px-4 py-2.5 text-sm font-bold text-white">Back to Entities</Link></div>
   }
   if (!resource.data) return null
 
-  const title = mode === 'create' ? 'Add entity' : 'Edit entity'
+  const title = mode === 'create' ? 'Add Entity' : 'Edit Entity'
   const fieldClass = (field: string) => `mt-2 w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 ${fieldErrors[field] ? 'border-rose-600 bg-rose-50' : 'border-slate-300 bg-white'} focus:border-teal-700`
   const managementError = (index: number, field: ManagementField) => fieldErrors[`management.${index}.${field}`]
 
   return <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-    <Link to="/admin/establishments" className="text-sm font-bold text-teal-700 hover:text-teal-600">← Back to entities</Link>
+    <Link to="/admin/establishments" className="text-sm font-bold text-teal-700 hover:text-teal-600">← Back to Entities</Link>
     <div className="mt-6"><p className="text-sm font-black tracking-[0.16em] text-teal-700 uppercase">Administrator workspace</p><h1 className="mt-2 text-3xl font-black tracking-tight text-navy-950 sm:text-4xl">{title}</h1><p className="mt-3 leading-7 text-slate-600">Maintain the institution profile, verified location details, and its management contacts. New entities remain unpublished until you publish them from the listing.</p></div>
     {success && <p className="mt-6 rounded-xl border border-teal-700/20 bg-teal-100 p-4 text-sm text-teal-800" role="status">{success}</p>}
     {formError && <p className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">{formError}</p>}
@@ -207,7 +207,7 @@ export function AdminEstablishmentFormPage({ mode }: { mode: 'create' | 'edit' }
           <div><label className="text-sm font-bold text-slate-700" htmlFor={`management-${member.key}-phone`}>Official telephone</label><input id={`management-${member.key}-phone`} type="tel" value={member.officialPhone} onChange={(event) => setManagementField(member.key, index, 'officialPhone', event.target.value)} className={fieldClass(`management.${index}.officialPhone`)} /></div>
         </div><div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => dispatchValues({ type: 'move-management', key: member.key, direction: -1 })} disabled={index === 0} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 disabled:opacity-40">Move up</button><button type="button" onClick={() => dispatchValues({ type: 'move-management', key: member.key, direction: 1 })} disabled={index === values.management.length - 1} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 disabled:opacity-40">Move down</button><button type="button" onClick={() => dispatchValues({ type: 'remove-management', key: member.key })} className="rounded-lg border border-rose-300 px-3 py-2 text-sm font-bold text-rose-700 hover:bg-rose-50">Remove member</button></div></fieldset>)}</div>}
       </section>
-      <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-6"><Link to="/admin/establishments" className="rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Cancel</Link><button type="submit" disabled={submitting} className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60 hover:bg-teal-600">{submitting ? 'Saving…' : mode === 'create' ? 'Create entity' : 'Save changes'}</button></div>
+      <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-6"><Link to="/admin/establishments" className="rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Cancel</Link><button type="submit" disabled={submitting} className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60 hover:bg-teal-600">{submitting ? 'Saving…' : mode === 'create' ? 'Create Entity' : 'Save changes'}</button></div>
     </form>
   </div>
 }

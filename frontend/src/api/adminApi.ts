@@ -88,6 +88,39 @@ export type AdministratorEstablishmentPage = {
   meta: AdministratorPagination
 }
 
+export type AdministratorAnalytics = {
+  totals: {
+    establishments: number
+    published: number
+    drafts: number
+    pendingReview: number
+  }
+  categories: Array<{ code: string; name: string; count: number }>
+  workflowStatuses: Array<{ status: AdministratorWorkflowStatus; count: number }>
+  profileCompleteness: {
+    complete: number
+    total: number
+    percentage: number
+    criteria: string[]
+  }
+  regions: Array<{ region: string; count: number }>
+  recentActivity: Array<{
+    id: number
+    name: string
+    categoryCode: string
+    categoryName: string
+    workflowStatus: AdministratorWorkflowStatus
+    updatedAt: string
+  }>
+  attention: {
+    missingLogos: number
+    missingContactInformation: number
+    missingDescriptions: number
+    missingRegionalInformation: number
+    supportsRegion: boolean
+  }
+}
+
 export type AdministratorApiRequestOptions = {
   signal?: AbortSignal
 }
@@ -210,6 +243,9 @@ export const loginAdministrator = async (email: string, password: string): Promi
 
 export const getAdministratorSession = async (options?: AdministratorApiRequestOptions): Promise<AdministratorSession> =>
   requireData<AdministratorSession>(await request<DataEnvelope<AdministratorSession>>('/admin/auth/session', {}, options))
+
+export const getAdministratorAnalytics = async (options?: AdministratorApiRequestOptions): Promise<AdministratorAnalytics> =>
+  requireData<AdministratorAnalytics>(await request<DataEnvelope<AdministratorAnalytics>>('/admin/analytics', {}, options))
 
 export const logoutAdministrator = async (csrfToken: string) => {
   await mutation<undefined>('POST', '/admin/auth/logout', csrfToken)

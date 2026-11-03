@@ -55,6 +55,20 @@ const administratorApi = (): AdministratorApiServices => ({
     }) : undefined),
     logout: vi.fn(async () => undefined),
   },
+  analytics: {
+    getDashboard: vi.fn(async () => ({
+      totals: { establishments: 1, published: 1, drafts: 0, pendingReview: 0 },
+      categories: [{ code: 'SOE', name: 'SOE', count: 1 }],
+      workflowStatuses: [
+        { status: 'draft', count: 0 }, { status: 'pending_review', count: 0 }, { status: 'published', count: 1 },
+        { status: 'changes_requested', count: 0 }, { status: 'rejected', count: 0 },
+      ],
+      profileCompleteness: { complete: 0, total: 1, percentage: 0, criteria: ['an institution logo'] },
+      regions: [],
+      recentActivity: [],
+      attention: { missingLogos: 1, missingContactInformation: 0, missingDescriptions: 0, missingRegionalInformation: 0, supportsRegion: true },
+    })),
+  },
   establishments: {
     list: vi.fn(async () => ({ data: [internalEstablishment], page: 1, pageSize: 20, total: 1, totalPages: 1 })),
     create: vi.fn(async () => internalEstablishment),
@@ -90,6 +104,19 @@ afterEach(async () => {
 })
 
 describe('administrator-only API', () => {
+  it('exposes analytics only to an authenticated administrator', async () => {
+    const admin = administratorApi()
+    const anonymous = await request('/api/admin/analytics', admin)
+    const authenticated = await request('/api/admin/analytics', admin, {
+      headers: { Cookie: `siga_admin_session=${sessionToken}` },
+    })
+
+    expect(anonymous.status).toBe(401)
+    expect(authenticated.status).toBe(200)
+    await expect(authenticated.json()).resolves.toMatchObject({ data: { totals: { establishments: 1 } } })
+    expect(admin.analytics.getDashboard).toHaveBeenCalledOnce()
+  })
+
   it('requires a public session for registry content while keeping administrator authorization separate', async () => {
     const admin = administratorApi()
     const categories = await request('/api/categories', admin)

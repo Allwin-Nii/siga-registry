@@ -38,11 +38,11 @@ describe('EstablishmentCard cover images', () => {
     expect(screen.getByRole('img', { name: 'No institutional cover available for Example Entity' })).toBeInTheDocument()
     expect(screen.queryByAltText('Example Entity institutional cover')).not.toBeInTheDocument()
     expect(screen.queryByRole('img', { name: /logo/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /View Details/ })).toHaveAttribute('href', '/establishments/example-entity')
+    expect(screen.getByRole('link', { name: /View Entity Details/ })).toHaveAttribute('href', '/establishments/example-entity')
 
     rerender(<MemoryRouter><EstablishmentCard establishment={entity} /></MemoryRouter>)
     fireEvent.error(screen.getByAltText('Example Entity institutional cover'))
     expect(screen.getByRole('img', { name: 'No institutional cover available for Example Entity' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /View Details/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /View Entity Details/ })).toBeInTheDocument()
   })
 })

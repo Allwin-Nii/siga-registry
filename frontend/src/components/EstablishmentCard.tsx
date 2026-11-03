@@ -17,7 +17,7 @@ export function EstablishmentCard({ establishment }: { establishment: PublicEsta
       <div className="flex grow flex-col p-5">
         <h2 className="text-xl font-black tracking-tight text-navy-950">{establishment.name}</h2>
         {establishment.supervisingMinistry && <p className="mt-3 text-sm leading-6 text-slate-600"><span className="font-bold text-slate-700">Supervising ministry:</span> {establishment.supervisingMinistry}</p>}
-        <div className="mt-auto pt-6"><Link className="inline-flex items-center rounded-lg bg-navy-950 px-3.5 py-2.5 text-sm font-bold text-white transition hover:bg-navy-800 focus:outline-none" to={`/establishments/${establishment.slug}`}>View Details <span className="ml-2" aria-hidden="true">→</span></Link></div>
+        <div className="mt-auto pt-6"><Link className="inline-flex items-center rounded-lg bg-navy-950 px-3.5 py-2.5 text-sm font-bold text-white transition hover:bg-navy-800 focus:outline-none" to={`/establishments/${establishment.slug}`}>View Entity Details <span className="ml-2" aria-hidden="true">→</span></Link></div>
       </div>
     </article>
   )

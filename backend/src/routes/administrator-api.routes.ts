@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { createOriginProtection, createRequireAdministrator, requireCsrfProtection } from '../middleware/administrator-security.js'
 import type { AdministratorAuthenticationService } from '../services/administrator-auth.service.js'
 import type { AdministratorEstablishmentService } from '../services/administrator-establishment.service.js'
+import type { AdministratorAnalyticsService } from '../services/administrator-analytics.service.js'
 import type { CategoryReader } from '../repositories/category.repository.js'
 import { clearSessionCookies, createSessionCookies, readCookies, sessionCookieName, type SessionCookieSettings } from '../security/cookies.js'
 import { ValidationError } from '../lib/errors.js'
@@ -9,6 +10,7 @@ import { workflowStatusCodes, type WorkflowStatusCode } from '../types/workflow.
 
 export type AdministratorApiServices = {
   authentication: AdministratorAuthenticationService
+  analytics: Pick<AdministratorAnalyticsService, 'getDashboard'>
   establishments: Pick<AdministratorEstablishmentService, 'list' | 'create' | 'update' | 'setPublication' | 'delete'>
   categories: Pick<CategoryReader, 'list'>
   allowedOrigin: string
@@ -57,6 +59,7 @@ const parseAdministratorListQuery = (query: Record<string, unknown>) => {
 
 export const createAdministratorApiRouter = ({
   authentication,
+  analytics,
   establishments,
   categories,
   allowedOrigin,
@@ -80,6 +83,10 @@ export const createAdministratorApiRouter = ({
         expiresAt: request.administratorSession!.expiresAt.toISOString(),
       },
     })
+  })
+
+  router.get('/admin/analytics', requireAdministrator, async (_request, response) => {
+    response.status(200).json({ data: await analytics.getDashboard() })
   })
 
   router.post('/admin/auth/logout', ...protectMutation, async (request, response) => {

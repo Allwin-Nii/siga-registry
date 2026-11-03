@@ -44,6 +44,9 @@ const fetchMock = vi.fn()
 const scrollTo = vi.fn()
 let sessionActive = false
 let forceEstablishmentError = false
+let forceAnalyticsError = false
+let holdAnalyticsResponse = false
+let releaseAnalyticsResponse: (() => void) | undefined
 let records: RecordFixture[] = []
 let categories = [category]
 
@@ -85,6 +88,33 @@ const configureAdministratorApi = () => {
     }
     if (!path.startsWith('/api/admin/')) return Promise.resolve(json({ error: { code: 'NOT_FOUND' } }, 404))
     if (!sessionActive) return unauthorized()
+    if (path === '/api/admin/analytics' && method === 'GET') {
+      if (forceAnalyticsError) return Promise.resolve(json({ error: { code: 'DATABASE_UNAVAILABLE', message: 'The service is temporarily unavailable.' } }, 503))
+      const analytics = () => json({
+        data: {
+          totals: {
+            establishments: records.length,
+            published: records.filter((record) => record.workflowStatus === 'published').length,
+            drafts: records.filter((record) => record.workflowStatus === 'draft').length,
+            pendingReview: 0,
+          },
+          categories: categories.map((item) => ({ code: item.code, name: item.name, count: records.filter((record) => record.category.code === item.code).length })),
+          workflowStatuses: [
+            { status: 'draft', count: records.filter((record) => record.workflowStatus === 'draft').length },
+            { status: 'pending_review', count: 0 },
+            { status: 'published', count: records.filter((record) => record.workflowStatus === 'published').length },
+            { status: 'changes_requested', count: 0 },
+            { status: 'rejected', count: 0 },
+          ],
+          profileCompleteness: { complete: 0, total: records.length, percentage: 0, criteria: ['an institution logo', 'at least one contact method (email or telephone)', 'a description', 'a region'] },
+          regions: [],
+          recentActivity: records.map((record) => ({ id: record.id, name: record.name, categoryCode: record.category.code, categoryName: record.category.name, workflowStatus: record.workflowStatus, updatedAt: record.updatedAt })),
+          attention: { missingLogos: records.length, missingContactInformation: 0, missingDescriptions: 0, missingRegionalInformation: records.length, supportsRegion: true },
+        },
+      })
+      if (holdAnalyticsResponse) return new Promise((resolve) => { releaseAnalyticsResponse = () => resolve(analytics()) })
+      return Promise.resolve(analytics())
+    }
     if (forceEstablishmentError && path === '/api/admin/establishments') {
       return Promise.resolve(json({ error: { code: 'DATABASE_UNAVAILABLE', message: 'The service is temporarily unavailable.' } }, 503))
     }
@@ -146,6 +176,9 @@ const signIn = async () => {
 beforeEach(() => {
   sessionActive = false
   forceEstablishmentError = false
+  forceAnalyticsError = false
+  holdAnalyticsResponse = false
+  releaseAnalyticsResponse = undefined
   records = [initialRecord()]
   categories = [{ ...category }]
   document.cookie = 'siga_admin_csrf=; Max-Age=0; Path=/'
@@ -176,8 +209,8 @@ describe('administrator interface', () => {
     }
     await signIn()
 
-    expect(await screen.findByRole('heading', { name: 'Registry overview' })).toBeInTheDocument()
-    expect(screen.getByAltText('State Interests and Governance Authority (SIGA)')).toHaveAttribute('src', '/branding/siga-logo.png')
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument()
+    expect(screen.getAllByAltText('State Interests and Governance Authority (SIGA)')[0]).toHaveAttribute('src', '/branding/siga-logo.png')
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3001/api/admin/auth/login',
       expect.objectContaining({ credentials: 'include', method: 'POST' }),
@@ -198,7 +231,7 @@ describe('administrator interface', () => {
     sessionActive = true
     document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
     const restored = renderAdmin('/admin')
-    expect(await screen.findByRole('heading', { name: 'Registry overview' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument()
     restored.unmount()
   })
 
@@ -206,14 +239,51 @@ describe('administrator interface', () => {
     sessionActive = true
     document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
     const overview = renderAdmin('/admin')
-    expect(await screen.findByRole('heading', { name: 'Registry overview' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument()
     expect(screen.queryByText('The administrator overview is unavailable')).not.toBeInTheDocument()
     overview.unmount()
 
     renderAdmin('/admin/establishments/1/edit')
-    expect(await screen.findByRole('heading', { name: 'Edit entity' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Edit Entity' })).toBeInTheDocument()
     expect(await screen.findByDisplayValue('Example Entity')).toBeInTheDocument()
     expect(screen.getByText('No management members have been added.')).toBeInTheDocument()
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+    const navigation = screen.getByRole('navigation', { name: 'Administrator navigation' })
+    expect(within(navigation).getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/admin')
+    expect(within(navigation).getByRole('link', { name: 'Entities' })).toHaveClass('bg-teal-100')
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+  })
+
+  it('renders analytics after its loading skeleton and retries an unavailable dashboard request', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    holdAnalyticsResponse = true
+    const loading = renderAdmin('/admin')
+    expect(await screen.findByRole('status', { name: 'Loading administrator analytics' })).toBeInTheDocument()
+    releaseAnalyticsResponse?.()
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Entities by category' })).toBeInTheDocument()
+    expect(screen.getAllByText('SOE — State-Owned Enterprises')).toHaveLength(2)
+    expect(screen.getByText('entities')).toBeInTheDocument()
+    expect(screen.getAllByText('SOE — State-Owned Enterprises')[1]?.parentElement).toHaveTextContent('1 entity (100%)')
+    expect(screen.getByRole('heading', { name: 'Regional distribution' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Records requiring attention' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Publication status' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Profile completeness' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Add Entity' })).toHaveAttribute('href', '/admin/establishments/new')
+    expect(screen.queryByRole('heading', { name: 'Recent activity' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+    expect(within(screen.getByRole('navigation', { name: 'Administrator navigation' })).getByRole('link', { name: 'Entities' })).toHaveAttribute('href', '/admin/establishments')
+    holdAnalyticsResponse = false
+    loading.unmount()
+
+    forceAnalyticsError = true
+    const retry = renderAdmin('/admin')
+    expect(await screen.findByRole('alert')).toHaveTextContent('The administrator overview is unavailable')
+    forceAnalyticsError = false
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Retry analytics' }))
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument()
+    retry.unmount()
   })
 
   it.each([
@@ -232,7 +302,7 @@ describe('administrator interface', () => {
     document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
     const user = userEvent.setup()
     renderAdmin('/admin')
-    await screen.findByRole('heading', { name: 'Registry overview' })
+    await screen.findByRole('heading', { name: 'Overview' })
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
@@ -247,7 +317,7 @@ describe('administrator interface', () => {
     document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
     const user = userEvent.setup()
     renderAdmin('/admin/establishments/new')
-    await screen.findByRole('heading', { name: 'Add entity' })
+    await screen.findByRole('heading', { name: 'Add Entity' })
     expect(screen.getByLabelText('Institution Logo URL')).toBeInTheDocument()
     await user.type(screen.getByLabelText('Institution Cover Image URL'), 'https://new.example.test/cover.jpg')
     await user.type(screen.getByLabelText(/^Name/), 'New Entity')
@@ -262,9 +332,9 @@ describe('administrator interface', () => {
     await user.click(screen.getByRole('button', { name: 'Add member' }))
     await user.type(screen.getByLabelText(/^Full name/), 'Ama Mensah')
     await user.type(screen.getByLabelText(/^Position/), 'Managing Director')
-    await user.click(screen.getByRole('button', { name: 'Create entity' }))
+    await user.click(screen.getByRole('button', { name: 'Create Entity' }))
 
-    expect(await screen.findByRole('heading', { name: 'Edit entity' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Edit Entity' })).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/establishments'), expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }) }))
     const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/api/admin/establishments') && (init as RequestInit).method === 'POST')
     if (!createCall) throw new Error('Expected the administrator create request.')

@@ -158,8 +158,14 @@ describe('SIGA Registry public API experience', () => {
     await user.click(screen.getByRole('button', { name: 'Create Account' }))
 
     expect(await screen.findByLabelText('9 entities found')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'My Account' })).toHaveAttribute('href', '/account')
+    expect(screen.queryByRole('link', { name: 'My Account' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Entities' })).toHaveAttribute('href', '/directory')
     expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument()
+    const footer = screen.getByRole('contentinfo')
+    expect(within(footer).queryByRole('link', { name: 'Home' })).not.toBeInTheDocument()
+    expect(within(footer).queryByRole('link', { name: 'Entities' })).not.toBeInTheDocument()
+    expect(within(footer).queryByText(/independently developed information system/i)).not.toBeInTheDocument()
+    expect(within(footer).getByRole('link', { name: /Visit the official SIGA website/ })).toHaveAttribute('href', 'https://siga.gov.gh/')
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/public/auth/register'), expect.objectContaining({ method: 'POST', credentials: 'include' }))
 
     await user.click(screen.getByRole('button', { name: 'Sign Out' }))
@@ -177,6 +183,8 @@ describe('SIGA Registry public API experience', () => {
     expect(await screen.findByRole('heading', { name: 'SIGA Registry' })).toBeInTheDocument()
     const password = screen.getByLabelText('Password')
     expect(password).toHaveAttribute('type', 'password')
+    expect(screen.queryByRole('link', { name: 'Create Account' })).not.toBeInTheDocument()
+    expect(screen.queryByText('New to SIGA Registry?')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Show password' }))
     expect(password).toHaveAttribute('type', 'text')
     await user.type(screen.getByLabelText('Email Address'), 'visitor@example.test')
@@ -195,7 +203,7 @@ describe('SIGA Registry public API experience', () => {
     expect(await screen.findByLabelText('9 entities found')).toBeInTheDocument()
     expect(screen.queryByText('Sign in to your public account')).not.toBeInTheDocument()
     expect(screen.queryByText('You can also browse the Entities Directory without signing in.')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'My Account' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'My Account' })).not.toBeInTheDocument()
   })
 
   it('loads the public directory for an authenticated public user', async () => {
@@ -347,7 +355,7 @@ describe('SIGA Registry public API experience', () => {
     expect(await screen.findByText('Ghana Oil Company')).toBeInTheDocument()
     expect(scrollTo).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('link', { name: /View Details/ }))
+    await user.click(screen.getByRole('link', { name: /View Entity Details/ }))
     expect(await screen.findByRole('heading', { name: 'Ghana Oil Company' })).toBeInTheDocument()
     expect(scrollTo).toHaveBeenCalledWith(0, 0)
   })

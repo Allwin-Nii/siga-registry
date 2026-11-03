@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { DatabaseExecutor, DatabaseParameter } from '../src/config/database.js'
 import { CategoryRepository } from '../src/repositories/category.repository.js'
 import { EstablishmentRepository } from '../src/repositories/establishment.repository.js'
+import { AdministratorAnalyticsRepository } from '../src/repositories/administrator-analytics.repository.js'
 
 type Call = { sql: string; values: DatabaseParameter[] | undefined }
 
@@ -59,6 +60,42 @@ const managementRow = {
 }
 
 describe('MySQL repositories', () => {
+  it('aggregates categories, workflow statuses, profile completeness, and empty results for administrator analytics', async () => {
+    const populated = createExecutor([
+      [{ establishments: 4, published: 1, drafts: 1, pending_review: 1, complete_profiles: 2, missing_logos: 2, missing_contact_information: 1, missing_descriptions: 0, missing_regional_information: 3 }],
+      [{ code: 'SOE', name: 'SOE', count: 2 }, { code: 'JVC', name: 'JVC', count: 1 }, { code: 'OSE', name: 'OSE', count: 1 }],
+      [{ workflow_status: 'published', count: 1 }, { workflow_status: 'pending_review', count: 1 }, { workflow_status: 'rejected', count: 1 }, { workflow_status: 'draft', count: 1 }],
+      [{ region: 'Greater Accra', count: 3 }],
+      [{ id: 3, name: 'Example Entity', category_code: 'SOE', category_name: 'SOE', workflow_status: 'published', updated_at: row.updated_at }],
+    ])
+
+    const dashboard = await new AdministratorAnalyticsRepository(populated.executor).getDashboard()
+
+    expect(dashboard.totals).toEqual({ establishments: 4, published: 1, drafts: 1, pendingReview: 1 })
+    expect(dashboard.categories).toEqual([{ code: 'SOE', name: 'SOE', count: 2 }, { code: 'JVC', name: 'JVC', count: 1 }, { code: 'OSE', name: 'OSE', count: 1 }])
+    expect(dashboard.workflowStatuses).toEqual([
+      { status: 'draft', count: 1 }, { status: 'pending_review', count: 1 }, { status: 'published', count: 1 },
+      { status: 'changes_requested', count: 0 }, { status: 'rejected', count: 1 },
+    ])
+    expect(dashboard.profileCompleteness).toMatchObject({ complete: 2, total: 4, percentage: 50 })
+    expect(dashboard.attention).toMatchObject({ missingLogos: 2, missingContactInformation: 1, missingDescriptions: 0, missingRegionalInformation: 3 })
+    expect(dashboard.recentActivity[0]).toMatchObject({ name: 'Example Entity', categoryCode: 'SOE', workflowStatus: 'published' })
+    expect(populated.calls).toHaveLength(5)
+    expect(populated.calls[0]?.sql).toContain('complete_profiles')
+    expect(populated.calls[1]?.sql).toContain('LEFT JOIN establishments')
+    expect(populated.calls[2]?.sql).toContain('GROUP BY e.workflow_status')
+
+    const empty = createExecutor([
+      [{ establishments: 0, published: 0, drafts: 0, pending_review: 0, complete_profiles: 0, missing_logos: 0, missing_contact_information: 0, missing_descriptions: 0, missing_regional_information: 0 }],
+      [{ code: 'SOE', name: 'SOE', count: 0 }], [], [], [],
+    ])
+    const emptyDashboard = await new AdministratorAnalyticsRepository(empty.executor).getDashboard()
+    expect(emptyDashboard.totals).toEqual({ establishments: 0, published: 0, drafts: 0, pendingReview: 0 })
+    expect(emptyDashboard.profileCompleteness).toMatchObject({ complete: 0, total: 0, percentage: 0 })
+    expect(emptyDashboard.regions).toEqual([])
+    expect(emptyDashboard.recentActivity).toEqual([])
+  })
+
   it('retrieves configured categories from SQL rather than route constants', async () => {
     const { executor, calls } = createExecutor([[
       { id: 1, code: 'SOE', name: 'SOE', description: 'State-Owned Enterprise' },

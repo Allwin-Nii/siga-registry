@@ -159,7 +159,7 @@ export function RegistryProvider({ children }: { children: ReactNode }) {
 
   const updateEstablishment = useCallback((id: string, input: EstablishmentInput): RegistryOperationResult => {
     const current = state.establishments.find((establishment) => establishment.id === id)
-    if (!current) return { ok: false, errors: { name: 'This establishment was not found.' } }
+    if (!current) return { ok: false, errors: { name: 'This entity was not found.' } }
     const normalizedInput = toEstablishmentInput(input)
     const errors = validateEstablishmentInput(normalizedInput, {
       categories: state.categories,
@@ -174,7 +174,7 @@ export function RegistryProvider({ children }: { children: ReactNode }) {
 
   const submitEstablishment = useCallback((id: string): RegistryWorkflowResult => {
     const current = state.establishments.find((establishment) => establishment.id === id)
-    if (!current) return { ok: false, error: 'This establishment was not found.' }
+    if (!current) return { ok: false, error: 'This entity was not found.' }
     if (current.status !== 'Draft' && current.status !== 'Changes requested') {
       return { ok: false, error: 'Only draft or changes-requested records can be submitted for review.' }
     }
@@ -184,7 +184,7 @@ export function RegistryProvider({ children }: { children: ReactNode }) {
 
   const reviewEstablishment = useCallback((id: string, decision: ReviewDecision, feedback?: string): RegistryWorkflowResult => {
     const current = state.establishments.find((establishment) => establishment.id === id)
-    if (!current) return { ok: false, error: 'This establishment was not found.' }
+    if (!current) return { ok: false, error: 'This entity was not found.' }
     if (current.status !== 'Pending review') {
       return { ok: false, error: 'Only pending records can be reviewed.' }
     }

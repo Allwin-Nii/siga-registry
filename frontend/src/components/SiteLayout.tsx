@@ -32,17 +32,15 @@ export function SiteLayout() {
           <NavLink to="/" className="min-w-0" aria-label="SIGA Registry home"><SigaLogo className="h-10 w-auto max-w-full sm:h-12" /></NavLink>
           <nav aria-label="Primary navigation" className="order-3 flex w-full items-center gap-1 overflow-x-auto pb-1 sm:order-2 sm:w-auto sm:pb-0">
             {status === 'authenticated'
-              ? <><NavLink to="/directory" className={navItem}>Entities</NavLink><NavLink to="/account" className={navItem}>My Account</NavLink><button type="button" onClick={() => void signOut()} className="rounded-md px-3 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-100 hover:text-navy-900">Sign Out</button></>
+              ? <><NavLink to="/directory" className={navItem}>Entities</NavLink><button type="button" onClick={() => void signOut()} className="rounded-md px-3 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-100 hover:text-navy-900">Sign Out</button></>
               : <NavLink to="/login" className={navItem}>Sign In</NavLink>}
           </nav>
         </div>
       </header>
       <main id="main-content"><Outlet /></main>
       <footer className="mt-16 border-t border-navy-900 bg-navy-950 text-slate-300">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1.25fr_1fr_1fr] lg:px-8">
-          <div><p className="text-lg font-black text-white">SIGA Registry</p><p className="mt-2 max-w-sm text-sm leading-6 text-slate-400">SIGA Registry is an independently developed information system referencing publicly available SIGA information. For official records, visit siga.gov.gh.</p></div>
-          <div><p className="text-sm font-bold text-white">Navigation</p><div className="mt-3 grid gap-2 text-sm"><NavLink to="/" className="hover:text-white">Home</NavLink><NavLink to="/directory" className="hover:text-white">Entities</NavLink></div></div>
-          <div><p className="text-sm font-bold text-white">Official reference</p><a className="mt-3 inline-flex text-sm font-semibold text-teal-100 underline decoration-teal-600 underline-offset-4 hover:text-white" href="https://siga.gov.gh/" target="_blank" rel="noopener noreferrer">Visit the official SIGA website <span aria-hidden="true">↗</span></a><p className="mt-4 text-xs leading-5 text-slate-500">Public information may change. Confirm current details with the relevant entity.</p></div>
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <p className="text-sm font-bold text-white">Official reference</p><a className="mt-3 inline-flex text-sm font-semibold text-teal-100 underline decoration-teal-600 underline-offset-4 hover:text-white" href="https://siga.gov.gh/" target="_blank" rel="noopener noreferrer">Visit the official SIGA website <span aria-hidden="true">↗</span></a>
         </div>
       </footer>
     </div>
