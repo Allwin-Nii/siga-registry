@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PublicCategory, PublicEstablishment } from '../api/publicApi'
+import type { PublicCategory, PublicDashboard, PublicEstablishment } from '../api/publicApi'
 import App from '../App'
 import { PublicAuthProvider } from '../state/PublicAuthProvider'
 
@@ -24,11 +24,23 @@ const establishments: PublicEstablishment[] = [
   { id: '9', slug: 'zeta-public-services', name: 'Zeta Public Services', website: '', categoryId: 'ose', category: categories[2], email: '', contactNumber: '', summary: 'A final alphabetic public service.' },
 ]
 
+const dashboardData: PublicDashboard = {
+  total: 9,
+  categoryCounts: { SOE: 5, JVC: 1, OSE: 3 },
+  recent: [
+    { id: establishments[8]!.id, slug: establishments[8]!.slug, name: establishments[8]!.name, category: categories[2]!, publishedAt: '2026-11-03T12:00:00.000Z', publishedAtSource: 'updatedAt' },
+    { id: establishments[7]!.id, slug: establishments[7]!.slug, name: establishments[7]!.name, category: categories[0]!, publishedAt: '2026-11-02T12:00:00.000Z', publishedAtSource: 'reviewedAt' },
+    { id: establishments[6]!.id, slug: establishments[6]!.slug, name: establishments[6]!.name, category: categories[0]!, publishedAt: '2026-11-01T12:00:00.000Z', publishedAtSource: 'createdAt' },
+  ],
+}
+
 const fetchMock = vi.fn()
 const scrollTo = vi.fn()
 let directoryUnavailable = false
 let emptyDirectory = false
 let publicSessionActive = false
+let dashboardUnavailable = false
+let emptyDashboard = false
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -54,6 +66,11 @@ const configurePublicApi = () => {
       return Promise.resolve(new Response(null, { status: 204 }))
     }
     if (url.pathname === '/api/categories') return Promise.resolve(json({ data: categories }))
+    if (url.pathname === '/api/dashboard') {
+      return Promise.resolve(dashboardUnavailable
+        ? json({ error: { code: 'DATABASE_UNAVAILABLE', message: 'The service is temporarily unavailable.' } }, 503)
+        : json({ data: emptyDashboard ? { total: 0, categoryCounts: { SOE: 0, JVC: 0, OSE: 0 }, recent: [] } : dashboardData }))
+    }
     if (url.pathname === '/api/establishments/options') {
       const search = url.searchParams.get('search')?.toLocaleLowerCase() ?? ''
       const category = url.searchParams.get('category')?.toLocaleUpperCase() ?? ''
@@ -102,6 +119,8 @@ function renderApp(entry = '/') {
 beforeEach(() => {
   directoryUnavailable = false
   emptyDirectory = false
+  dashboardUnavailable = false
+  emptyDashboard = false
   publicSessionActive = true
   document.cookie = 'siga_public_csrf=test-public-csrf; Path=/'
   fetchMock.mockReset()
@@ -135,6 +154,15 @@ describe('SIGA Registry public API experience', () => {
 
     expect(await screen.findByRole('heading', { name: 'SIGA Registry' })).toBeInTheDocument()
     expect(screen.queryByLabelText('9 entities found')).not.toBeInTheDocument()
+  })
+
+  it('redirects unauthenticated visitors away from the public dashboard', async () => {
+    publicSessionActive = false
+    document.cookie = 'siga_public_csrf=; Max-Age=0; Path=/'
+    renderApp('/dashboard')
+
+    expect(await screen.findByRole('heading', { name: 'SIGA Registry' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Specified Entities Registry' })).not.toBeInTheDocument()
   })
 
   it('redirects unauthenticated visitors away from individual entity profiles', async () => {
@@ -171,10 +199,10 @@ describe('SIGA Registry public API experience', () => {
     await user.click(screen.getByRole('button', { name: 'Sign Out' }))
     expect(await screen.findByRole('heading', { name: 'SIGA Registry' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Sign In' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('9 entities found')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Specified Entities Registry' })).not.toBeInTheDocument()
   })
 
-  it('signs public users in through the separate login page and redirects to the directory', async () => {
+  it('signs public users in through the separate login page and redirects to the dashboard', async () => {
     const user = userEvent.setup()
     publicSessionActive = false
     document.cookie = 'siga_public_csrf=; Max-Age=0; Path=/'
@@ -191,7 +219,7 @@ describe('SIGA Registry public API experience', () => {
     await user.type(password, 'a test-only public password')
     await user.click(screen.getByRole('button', { name: 'Sign In' }))
 
-    expect(await screen.findByLabelText('9 entities found')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Specified Entities Registry' })).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/public/auth/login'), expect.objectContaining({ method: 'POST', credentials: 'include' }))
   })
 
@@ -200,7 +228,7 @@ describe('SIGA Registry public API experience', () => {
     document.cookie = 'siga_public_csrf=test-public-csrf; Path=/'
     renderApp('/login')
 
-    expect(await screen.findByLabelText('9 entities found')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Specified Entities Registry' })).toBeInTheDocument()
     expect(screen.queryByText('Sign in to your public account')).not.toBeInTheDocument()
     expect(screen.queryByText('You can also browse the Entities Directory without signing in.')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'My Account' })).not.toBeInTheDocument()
@@ -218,6 +246,50 @@ describe('SIGA Registry public API experience', () => {
       expect.stringContaining('/api/establishments?page=1&pageSize=4'),
       expect.objectContaining({ credentials: 'include' }),
     )
+  })
+
+  it('renders published-only dashboard statistics, recent entities, navigation, empty data, and retry states', async () => {
+    const user = userEvent.setup()
+    renderApp('/dashboard')
+
+    expect(await screen.findByRole('heading', { name: 'Specified Entities Registry' })).toBeInTheDocument()
+    expect(screen.queryByText('Public Dashboard')).not.toBeInTheDocument()
+    expect(screen.getByTestId('dashboard-hero-copy')).toHaveClass('border-l-2', 'border-teal-600')
+    expect(await screen.findByText('Total Entities')).toBeInTheDocument()
+    expect(screen.getAllByText('State-Owned Enterprises')).not.toHaveLength(0)
+    expect(screen.getAllByText('Joint Venture Companies')).not.toHaveLength(0)
+    expect(screen.getAllByText('Other State Entities')).not.toHaveLength(0)
+    expect(screen.getByText('Zeta Public Services')).toBeInTheDocument()
+    const overview = screen.getByRole('link', { name: 'Overview' })
+    expect(overview).toHaveAttribute('href', '/dashboard')
+    expect(overview).toHaveAttribute('aria-current', 'page')
+    expect(overview).toHaveClass('bg-teal-100')
+    expect(screen.getByRole('link', { name: 'Entities' })).toHaveAttribute('href', '/directory')
+
+    await user.type(screen.getByLabelText('Search entities'), 'river')
+    await user.click(screen.getByRole('button', { name: 'Search Entities' }))
+    expect(await screen.findByText('Volta River Authority')).toBeInTheDocument()
+  })
+
+  it('renders zero counts and an empty recent-entity state when no records are published', async () => {
+    emptyDashboard = true
+    renderApp('/dashboard')
+
+    expect(await screen.findByText('No published entities yet')).toBeInTheDocument()
+    expect(screen.getByText('Recent published entities will appear here.')).toBeInTheDocument()
+    expect(screen.getByText('0 published entities (0%).')).toBeInTheDocument()
+  })
+
+  it('shows a dashboard API error and retries without displaying fabricated values', async () => {
+    const user = userEvent.setup()
+    dashboardUnavailable = true
+    renderApp('/dashboard')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The public dashboard is unavailable right now')
+    expect(screen.queryByText('Total Entities')).not.toBeInTheDocument()
+    dashboardUnavailable = false
+    await user.click(screen.getByRole('button', { name: 'Retry dashboard' }))
+    expect(await screen.findByText('Total Entities')).toBeInTheDocument()
   })
 
   it('renders the five toolbar controls in the required order and uses responsive two-column cards', async () => {
@@ -469,10 +541,10 @@ describe('SIGA Registry public API experience', () => {
     expect(screen.getByText('That profile is unavailable in the public directory.')).toBeInTheDocument()
   })
 
-  it('redirects authenticated root visits to the directory', async () => {
+  it('redirects authenticated root visits to the dashboard', async () => {
     renderApp('/')
 
-    expect(await screen.findByLabelText('9 entities found')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Specified Entities Registry' })).toBeInTheDocument()
   })
 
 })
