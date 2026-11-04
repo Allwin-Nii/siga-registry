@@ -129,6 +129,27 @@ export type PublicEntityOptionsQuery = {
   pageSize: number
 }
 
+export type PublicDashboardTimestampSource = 'reviewedAt' | 'updatedAt' | 'createdAt'
+
+export type PublicDashboardEntity = {
+  id: string
+  slug: string
+  name: string
+  category: PublicCategory
+  publishedAt: Date
+  publishedAtSource: PublicDashboardTimestampSource
+}
+
+export type PublicDashboard = {
+  total: number
+  categoryCounts: {
+    SOE: number
+    JVC: number
+    OSE: number
+  }
+  recent: PublicDashboardEntity[]
+}
+
 export type PaginatedResult<T> = {
   data: T[]
   page: number

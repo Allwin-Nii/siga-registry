@@ -30,7 +30,7 @@ export type AdministratorAnalytics = {
     establishments: number
     published: number
     drafts: number
-    pendingReview: number
+    unpublished: number
   }
   categories: AnalyticsCategory[]
   workflowStatuses: AnalyticsWorkflowStatus[]

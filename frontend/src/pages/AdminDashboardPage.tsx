@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react'
-import { Building2, CircleCheckBig, ClipboardClock, FileText, Plus } from 'lucide-react'
+import { Building2, CircleCheckBig, EyeOff, FileText, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { AdministratorApiError, getAdministratorAnalytics, type AdministratorAnalytics } from '../api/adminApi'
 import { usePublicApiResource } from '../api/usePublicApiResource'
@@ -26,7 +26,7 @@ function DashboardContent({ analytics }: { analytics: AdministratorAnalytics }) 
     { label: 'Total Entities', value: analytics.totals.establishments, detail: 'All registry records', icon: Building2, tone: 'bg-navy-950 text-white', iconTone: 'bg-white/15 text-white' },
     { label: 'Published', value: analytics.totals.published, detail: 'Visible in the public directory', icon: CircleCheckBig, tone: 'bg-white text-navy-950', iconTone: 'bg-teal-100 text-teal-700' },
     { label: 'Drafts', value: analytics.totals.drafts, detail: 'Still being prepared', icon: FileText, tone: 'bg-white text-navy-950', iconTone: 'bg-slate-100 text-slate-700' },
-    { label: 'Pending review', value: analytics.totals.pendingReview, detail: 'Awaiting a decision', icon: ClipboardClock, tone: 'bg-white text-navy-950', iconTone: 'bg-amber-50 text-amber-700' },
+    { label: 'Unpublished Entities', value: analytics.totals.unpublished, detail: 'Not visible in the public directory', icon: EyeOff, tone: 'bg-white text-navy-950', iconTone: 'bg-amber-50 text-amber-700' },
   ]
   return <div className="mx-auto max-w-360 px-4 py-5 sm:px-6 lg:px-8">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

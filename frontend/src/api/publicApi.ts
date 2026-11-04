@@ -61,6 +61,27 @@ export type PublicEntityOptions = {
   meta: DirectoryMeta
 }
 
+export type PublicDashboardTimestampSource = 'reviewedAt' | 'updatedAt' | 'createdAt'
+
+export type PublicDashboardEntity = {
+  id: string
+  slug: string
+  name: string
+  category: PublicCategory
+  publishedAt: string
+  publishedAtSource: PublicDashboardTimestampSource
+}
+
+export type PublicDashboard = {
+  total: number
+  categoryCounts: {
+    SOE: number
+    JVC: number
+    OSE: number
+  }
+  recent: PublicDashboardEntity[]
+}
+
 export type DirectoryRequest = {
   search?: string
   category?: string
@@ -174,6 +195,9 @@ const requireData = <T>(body: unknown): T => {
 
 export const getPublicCategories = async (options?: PublicApiRequestOptions): Promise<PublicCategory[]> =>
   requireData<PublicCategory[]>(await request<ApiDataEnvelope<PublicCategory[]>>('/categories', options))
+
+export const getPublicDashboard = async (options?: PublicApiRequestOptions): Promise<PublicDashboard> =>
+  requireData<PublicDashboard>(await request<ApiDataEnvelope<PublicDashboard>>('/dashboard', options))
 
 export const getPublicDirectory = async (
   directory: DirectoryRequest = {},

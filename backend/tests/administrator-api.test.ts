@@ -57,7 +57,7 @@ const administratorApi = (): AdministratorApiServices => ({
   },
   analytics: {
     getDashboard: vi.fn(async () => ({
-      totals: { establishments: 1, published: 1, drafts: 0, pendingReview: 0 },
+      totals: { establishments: 1, published: 1, drafts: 0, unpublished: 0 },
       categories: [{ code: 'SOE', name: 'SOE', count: 1 }],
       workflowStatuses: [
         { status: 'draft', count: 0 }, { status: 'pending_review', count: 0 }, { status: 'published', count: 1 },

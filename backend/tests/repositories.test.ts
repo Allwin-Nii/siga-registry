@@ -62,7 +62,7 @@ const managementRow = {
 describe('MySQL repositories', () => {
   it('aggregates categories, workflow statuses, profile completeness, and empty results for administrator analytics', async () => {
     const populated = createExecutor([
-      [{ establishments: 4, published: 1, drafts: 1, pending_review: 1, complete_profiles: 2, missing_logos: 2, missing_contact_information: 1, missing_descriptions: 0, missing_regional_information: 3 }],
+      [{ establishments: 4, published: 1, drafts: 1, unpublished: 3, complete_profiles: 2, missing_logos: 2, missing_contact_information: 1, missing_descriptions: 0, missing_regional_information: 3 }],
       [{ code: 'SOE', name: 'SOE', count: 2 }, { code: 'JVC', name: 'JVC', count: 1 }, { code: 'OSE', name: 'OSE', count: 1 }],
       [{ workflow_status: 'published', count: 1 }, { workflow_status: 'pending_review', count: 1 }, { workflow_status: 'rejected', count: 1 }, { workflow_status: 'draft', count: 1 }],
       [{ region: 'Greater Accra', count: 3 }],
@@ -71,7 +71,7 @@ describe('MySQL repositories', () => {
 
     const dashboard = await new AdministratorAnalyticsRepository(populated.executor).getDashboard()
 
-    expect(dashboard.totals).toEqual({ establishments: 4, published: 1, drafts: 1, pendingReview: 1 })
+    expect(dashboard.totals).toEqual({ establishments: 4, published: 1, drafts: 1, unpublished: 3 })
     expect(dashboard.categories).toEqual([{ code: 'SOE', name: 'SOE', count: 2 }, { code: 'JVC', name: 'JVC', count: 1 }, { code: 'OSE', name: 'OSE', count: 1 }])
     expect(dashboard.workflowStatuses).toEqual([
       { status: 'draft', count: 1 }, { status: 'pending_review', count: 1 }, { status: 'published', count: 1 },
@@ -81,16 +81,17 @@ describe('MySQL repositories', () => {
     expect(dashboard.attention).toMatchObject({ missingLogos: 2, missingContactInformation: 1, missingDescriptions: 0, missingRegionalInformation: 3 })
     expect(dashboard.recentActivity[0]).toMatchObject({ name: 'Example Entity', categoryCode: 'SOE', workflowStatus: 'published' })
     expect(populated.calls).toHaveLength(5)
+    expect(populated.calls[0]?.sql).toContain("SUM(e.workflow_status <> 'published')")
     expect(populated.calls[0]?.sql).toContain('complete_profiles')
     expect(populated.calls[1]?.sql).toContain('LEFT JOIN establishments')
     expect(populated.calls[2]?.sql).toContain('GROUP BY e.workflow_status')
 
     const empty = createExecutor([
-      [{ establishments: 0, published: 0, drafts: 0, pending_review: 0, complete_profiles: 0, missing_logos: 0, missing_contact_information: 0, missing_descriptions: 0, missing_regional_information: 0 }],
+      [{ establishments: 0, published: 0, drafts: 0, unpublished: 0, complete_profiles: 0, missing_logos: 0, missing_contact_information: 0, missing_descriptions: 0, missing_regional_information: 0 }],
       [{ code: 'SOE', name: 'SOE', count: 0 }], [], [], [],
     ])
     const emptyDashboard = await new AdministratorAnalyticsRepository(empty.executor).getDashboard()
-    expect(emptyDashboard.totals).toEqual({ establishments: 0, published: 0, drafts: 0, pendingReview: 0 })
+    expect(emptyDashboard.totals).toEqual({ establishments: 0, published: 0, drafts: 0, unpublished: 0 })
     expect(emptyDashboard.profileCompleteness).toMatchObject({ complete: 0, total: 0, percentage: 0 })
     expect(emptyDashboard.regions).toEqual([])
     expect(emptyDashboard.recentActivity).toEqual([])
@@ -148,6 +149,36 @@ describe('MySQL repositories', () => {
     expect(calls[0]?.values).toEqual(['SOE', row.slug])
     expect(calls[1]?.sql).toContain('ORDER BY e.name ASC, e.id ASC')
     expect(calls[1]?.values).toEqual(['SOE', row.slug, 4, 4])
+  })
+
+  it('aggregates only published entities for the public dashboard and returns three recent public records', async () => {
+    const { executor, calls } = createExecutor([
+      [{ total: 4, soe_total: 2, jvc_total: 1, ose_total: 1 }],
+      [{
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        category_code: row.category_code,
+        category_name: row.category_name,
+        category_description: row.category_description,
+        published_at: row.updated_at,
+        published_at_source: 'updatedAt',
+      }],
+    ])
+
+    const dashboard = await new EstablishmentRepository(executor).findPublishedDashboard()
+
+    expect(dashboard).toMatchObject({
+      total: 4,
+      categoryCounts: { SOE: 2, JVC: 1, OSE: 1 },
+      recent: [{ slug: row.slug, category: { code: 'SOE' }, publishedAtSource: 'updatedAt' }],
+    })
+    expect(calls).toHaveLength(2)
+    expect(calls[0]?.sql).toContain("e.workflow_status = 'published'")
+    expect(calls[0]?.sql).toContain("SUM(c.code = 'SOE')")
+    expect(calls[1]?.sql).toContain("e.workflow_status = 'published'")
+    expect(calls[1]?.sql).toContain('ORDER BY COALESCE(e.reviewed_at, e.updated_at, e.created_at) DESC')
+    expect(calls[1]?.sql).toContain('LIMIT 3')
   })
 
   it('supports independent name and category filters before they are combined', async () => {

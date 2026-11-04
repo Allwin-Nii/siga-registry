@@ -16,6 +16,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { PublicAccountPage } from './pages/PublicAccountPage'
 import { PublicLoginPage } from './pages/PublicLoginPage'
 import { PublicRegistrationPage } from './pages/PublicRegistrationPage'
+import { PublicDashboardPage } from './pages/PublicDashboardPage'
 
 function App() {
   return <>
@@ -26,6 +27,7 @@ function App() {
         <Route path="login" element={<PublicLoginPage />} />
         <Route path="register" element={<PublicRegistrationPage />} />
         <Route element={<PublicRoute />}>
+          <Route path="dashboard" element={<PublicDashboardPage />} />
           <Route path="directory" element={<DirectoryPage />} />
           <Route path="establishments/:slug" element={<EstablishmentDetailPage />} />
           <Route path="account" element={<PublicAccountPage />} />

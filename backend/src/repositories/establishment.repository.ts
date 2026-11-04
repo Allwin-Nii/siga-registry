@@ -8,6 +8,9 @@ import type {
   PaginatedResult,
   PublicEntityOption,
   PublicEntityOptionsQuery,
+  PublicDashboard,
+  PublicDashboardEntity,
+  PublicDashboardTimestampSource,
   PublicEstablishment,
   RegistryCategory,
   ValidatedEstablishmentInput,
@@ -61,6 +64,24 @@ type PublicEntityOptionRow = RowDataPacket & {
   slug: string
   name: string
   category_code: string
+}
+
+type PublicDashboardSummaryRow = RowDataPacket & {
+  total: number
+  soe_total: number
+  jvc_total: number
+  ose_total: number
+}
+
+type PublicDashboardRecentRow = RowDataPacket & {
+  id: number
+  slug: string
+  name: string
+  category_code: string
+  category_name: string
+  category_description: string
+  published_at: Date
+  published_at_source: PublicDashboardTimestampSource
 }
 
 const establishmentColumns = `
@@ -168,6 +189,20 @@ const toPublicEstablishment = (record: EstablishmentRecord): PublicEstablishment
   }
 }
 
+const toPublicDashboardEntity = (row: PublicDashboardRecentRow): PublicDashboardEntity => ({
+  id: String(row.id),
+  slug: row.slug,
+  name: row.name,
+  category: {
+    id: row.category_code.toLocaleLowerCase(),
+    code: row.category_code,
+    name: row.category_name,
+    description: row.category_description,
+  },
+  publishedAt: row.published_at,
+  publishedAtSource: row.published_at_source,
+})
+
 const escapeLike = (value: string) => value.replace(/[!%_]/g, (character) => `!${character}`)
 
 const createPublicConditions = (query: Pick<DirectoryQuery, 'search' | 'categoryCode' | 'entitySlug'>) => {
@@ -209,6 +244,7 @@ export interface EstablishmentReader {
   findPublishedDirectory(query: DirectoryQuery): Promise<PaginatedResult<PublicEstablishment>>
   findPublishedEntityOptions(query: PublicEntityOptionsQuery): Promise<PaginatedResult<PublicEntityOption>>
   findPublishedBySlug(slug: string): Promise<PublicEstablishment | undefined>
+  findPublishedDashboard(): Promise<PublicDashboard>
 }
 
 export interface EstablishmentManagerRepository extends EstablishmentReader {
@@ -290,6 +326,50 @@ export class EstablishmentRepository implements EstablishmentManagerRepository {
     `, [slug])
     if (!rows[0]) return undefined
     return toPublicEstablishment(await this.toRecordWithManagement(rows[0]))
+  }
+
+  async findPublishedDashboard(): Promise<PublicDashboard> {
+    const [summaryRows] = await this.database.execute<PublicDashboardSummaryRow[]>(`
+      SELECT
+        COUNT(*) AS total,
+        COALESCE(SUM(c.code = 'SOE'), 0) AS soe_total,
+        COALESCE(SUM(c.code = 'JVC'), 0) AS jvc_total,
+        COALESCE(SUM(c.code = 'OSE'), 0) AS ose_total
+      FROM establishments e
+      INNER JOIN categories c ON c.id = e.category_id
+      WHERE e.workflow_status = 'published'
+    `)
+    const [recentRows] = await this.database.execute<PublicDashboardRecentRow[]>(`
+      SELECT
+        e.id,
+        e.slug,
+        e.name,
+        c.code AS category_code,
+        c.name AS category_name,
+        c.description AS category_description,
+        COALESCE(e.reviewed_at, e.updated_at, e.created_at) AS published_at,
+        CASE
+          WHEN e.reviewed_at IS NOT NULL THEN 'reviewedAt'
+          WHEN e.updated_at IS NOT NULL THEN 'updatedAt'
+          ELSE 'createdAt'
+        END AS published_at_source
+      FROM establishments e
+      INNER JOIN categories c ON c.id = e.category_id
+      WHERE e.workflow_status = 'published'
+      ORDER BY COALESCE(e.reviewed_at, e.updated_at, e.created_at) DESC, e.id DESC
+      LIMIT 3
+    `)
+    const summary = summaryRows[0]
+
+    return {
+      total: Number(summary?.total ?? 0),
+      categoryCounts: {
+        SOE: Number(summary?.soe_total ?? 0),
+        JVC: Number(summary?.jvc_total ?? 0),
+        OSE: Number(summary?.ose_total ?? 0),
+      },
+      recent: recentRows.map(toPublicDashboardEntity),
+    }
   }
 
   async findById(id: number, executor: DatabaseExecutor = this.database): Promise<EstablishmentRecord | undefined> {

@@ -59,18 +59,21 @@ The CLI prompts twice for a hidden password; it requires a 12–128 character pa
 
 ## Public API
 
-No login is required for these routes. They never redirect visitors to a login page.
+A valid public-user session is required for these routes. They never accept an administrator session or expose administrator-only data.
 
 | Method | Endpoint | Behavior |
 | --- | --- | --- |
 | `GET` | `/api/health` | API and database availability. |
 | `GET` | `/api/categories` | MySQL-backed public category list. |
+| `GET` | `/api/dashboard` | Published-only totals, category counts, and the three most recently published entities. |
 | `GET` | `/api/establishments` | Published-only directory. |
 | `GET` | `/api/establishments/:slug` | One published establishment. |
 
 `GET /api/establishments` supports `search` (case-insensitive partial name match), `category` (`SOE`, `JVC`, or `OSE`, case-insensitive), `page`, and `pageSize`. Search and category filters combine; result ordering is deterministic. Empty directory results are valid until verified records are deliberately imported into MySQL.
 
-Public responses contain the six approved establishment fields—name, website URL, category, email, contact number, and brief description—plus only ID/slug identifiers needed for routing. They never reveal review feedback, workflow history, or unpublished records. Missing and unpublished detail records both return `404`.
+Directory and detail responses contain the six approved establishment fields—name, website URL, category, email, contact number, and brief description—plus only ID/slug identifiers needed for routing. They never reveal review feedback, workflow history, or unpublished records. Missing and unpublished detail records both return `404`.
+
+The dashboard's recent-entity order uses `reviewed_at` as the publication timestamp when it is available. The existing schema does not store a separate publication timestamp for direct publications, so it falls back to `updated_at`, then `created_at`; the response identifies which value was used so the interface can label a fallback accurately. No migration or database record changes are required.
 
 ## Administrator API
 

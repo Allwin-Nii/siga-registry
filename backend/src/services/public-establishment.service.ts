@@ -1,11 +1,12 @@
 import { DatabaseUnavailableError, NotFoundError } from '../lib/errors.js'
 import type { EstablishmentReader } from '../repositories/establishment.repository.js'
-import type { DirectoryQuery, PaginatedResult, PublicEntityOption, PublicEntityOptionsQuery, PublicEstablishment } from '../types/establishment.js'
+import type { DirectoryQuery, PaginatedResult, PublicDashboard, PublicEntityOption, PublicEntityOptionsQuery, PublicEstablishment } from '../types/establishment.js'
 
 export interface PublicEstablishmentEndpointService {
   getDirectory(query: DirectoryQuery): Promise<PaginatedResult<PublicEstablishment>>
   getEntityOptions(query: PublicEntityOptionsQuery): Promise<PaginatedResult<PublicEntityOption>>
   getPublishedBySlug(slug: string): Promise<PublicEstablishment>
+  getDashboard(): Promise<PublicDashboard>
 }
 
 export class PublicEstablishmentService implements PublicEstablishmentEndpointService {
@@ -34,6 +35,14 @@ export class PublicEstablishmentService implements PublicEstablishmentEndpointSe
       return establishment
     } catch (error) {
       if (error instanceof NotFoundError) throw error
+      throw new DatabaseUnavailableError()
+    }
+  }
+
+  async getDashboard(): Promise<PublicDashboard> {
+    try {
+      return await this.establishments.findPublishedDashboard()
+    } catch {
       throw new DatabaseUnavailableError()
     }
   }

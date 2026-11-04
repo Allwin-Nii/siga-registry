@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { SigaLogo } from '../components/SigaLogo'
 import { usePublicAuth } from '../state/usePublicAuth'
@@ -7,14 +7,13 @@ import { usePublicAuth } from '../state/usePublicAuth'
 export function PublicLoginPage() {
   const { status, login } = usePublicAuth()
   const navigate = useNavigate()
-  const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  if (status === 'authenticated') return <Navigate to="/directory" replace />
+  if (status === 'authenticated') return <Navigate to="/dashboard" replace />
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -22,8 +21,7 @@ export function PublicLoginPage() {
     setSubmitting(true)
     try {
       await login(email, password)
-      const requestedPath = (location.state as { from?: unknown } | null)?.from
-      navigate(typeof requestedPath === 'string' && requestedPath.startsWith('/') ? requestedPath : '/directory', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : 'Unable to sign in.')
     } finally {

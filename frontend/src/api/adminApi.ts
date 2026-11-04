@@ -93,7 +93,7 @@ export type AdministratorAnalytics = {
     establishments: number
     published: number
     drafts: number
-    pendingReview: number
+    unpublished: number
   }
   categories: Array<{ code: string; name: string; count: number }>
   workflowStatuses: Array<{ status: AdministratorWorkflowStatus; count: number }>

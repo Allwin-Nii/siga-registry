@@ -4,7 +4,7 @@ This React, TypeScript, Vite, React Router, and Tailwind CSS frontend presents t
 
 ## Demonstration limits
 
-The public directory, homepage statistics, category links, and entity details use only the anonymous published-record API. They do **not** constitute a complete, certified, or official SIGA directory, and this application is not an official SIGA service. The category and detail-source register for retained historical fixtures is in [../docs/entity-sources.md](../docs/entity-sources.md).
+The authenticated public dashboard, directory, category links, and entity details use only published-record API responses. They do **not** constitute a complete, certified, or official SIGA directory, and this application is not an official SIGA service. The category and detail-source register for retained historical fixtures is in [../docs/entity-sources.md](../docs/entity-sources.md).
 
 The routable administrator workspace is API-backed: it manages entities and publication state through protected administrator endpoints. Its category selector reads the fixed categories; it cannot create, edit, or delete them. Legacy mock-data and preview components remain in the source tree for now but are no longer exposed by the application routes and do not represent persisted actions.
 
@@ -22,7 +22,7 @@ Copy `.env.example` to `.env` to override the local API address when needed:
 VITE_PUBLIC_API_BASE_URL=http://localhost:3001/api
 ```
 
-The default is `http://localhost:3001/api`; do not hardcode a production address. Public requests are anonymous and omit browser credentials. Administrator requests use the same base URL with browser credentials included, so the configured backend `CORS_ORIGIN` must be the exact frontend origin.
+The default is `http://localhost:3001/api`; do not hardcode a production address. Public and administrator requests use the same base URL with browser credentials included, so the configured backend `CORS_ORIGIN` must be the exact frontend origin.
 
 Administrator login uses the server's `HttpOnly` session cookie, which remains scoped to `/api`. The readable `siga_admin_csrf` cookie is scoped to `/` so the React app can obtain its value after login/session restoration and retain it only in React memory for the `X-CSRF-Token` header. Neither passwords, session credentials, nor CSRF tokens are persisted in browser storage or logged.
 
@@ -46,7 +46,8 @@ npm run build
 
 ## Routes
 
-- `/` — public landing page
+- `/` — redirects an authenticated public user to the dashboard and an unauthenticated visitor to sign-in
+- `/dashboard` — authenticated public dashboard with published-only counts, distribution, and recent entities
 - `/directory` — searchable and filterable Entity Directory
 - `/establishments/:slug` — public entity detail page (the route remains unchanged for API compatibility)
 - `/admin/login` — administrator sign-in

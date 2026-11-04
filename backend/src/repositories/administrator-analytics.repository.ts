@@ -13,7 +13,7 @@ type SummaryRow = RowDataPacket & {
   establishments: number
   published: number
   drafts: number
-  pending_review: number
+  unpublished: number
   complete_profiles: number
   missing_logos: number
   missing_contact_information: number
@@ -74,7 +74,7 @@ export class AdministratorAnalyticsRepository implements AdministratorAnalyticsR
           COUNT(*) AS establishments,
           COALESCE(SUM(e.workflow_status = 'published'), 0) AS published,
           COALESCE(SUM(e.workflow_status = 'draft'), 0) AS drafts,
-          COALESCE(SUM(e.workflow_status = 'pending_review'), 0) AS pending_review,
+          COALESCE(SUM(e.workflow_status <> 'published'), 0) AS unpublished,
           COALESCE(SUM(
             NULLIF(TRIM(e.logo_url), '') IS NOT NULL
             AND (NULLIF(TRIM(e.email), '') IS NOT NULL OR NULLIF(TRIM(e.contact_number), '') IS NOT NULL)
@@ -125,7 +125,7 @@ export class AdministratorAnalyticsRepository implements AdministratorAnalyticsR
         establishments: total,
         published: numberFrom(summary?.published),
         drafts: numberFrom(summary?.drafts),
-        pendingReview: numberFrom(summary?.pending_review),
+        unpublished: numberFrom(summary?.unpublished),
       },
       categories: categoriesResult[0].map((row): AnalyticsCategory => ({
         code: row.code,

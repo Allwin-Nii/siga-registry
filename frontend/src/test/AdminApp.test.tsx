@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
+import type { AdministratorWorkflowStatus } from '../api/adminApi'
 import { AdminAuthProvider } from '../state/AdminAuthProvider'
 
 type RecordFixture = {
@@ -14,7 +15,7 @@ type RecordFixture = {
   contactNumber: string | null
   summary: string
   category: { id: number; code: string; name: string; description: string }
-  workflowStatus: 'draft' | 'published'
+  workflowStatus: AdministratorWorkflowStatus
   createdAt: string
   updatedAt: string
   submittedAt: string | null
@@ -96,15 +97,15 @@ const configureAdministratorApi = () => {
             establishments: records.length,
             published: records.filter((record) => record.workflowStatus === 'published').length,
             drafts: records.filter((record) => record.workflowStatus === 'draft').length,
-            pendingReview: 0,
+            unpublished: records.filter((record) => record.workflowStatus !== 'published').length,
           },
           categories: categories.map((item) => ({ code: item.code, name: item.name, count: records.filter((record) => record.category.code === item.code).length })),
           workflowStatuses: [
             { status: 'draft', count: records.filter((record) => record.workflowStatus === 'draft').length },
-            { status: 'pending_review', count: 0 },
+            { status: 'pending_review', count: records.filter((record) => record.workflowStatus === 'pending_review').length },
             { status: 'published', count: records.filter((record) => record.workflowStatus === 'published').length },
-            { status: 'changes_requested', count: 0 },
-            { status: 'rejected', count: 0 },
+            { status: 'changes_requested', count: records.filter((record) => record.workflowStatus === 'changes_requested').length },
+            { status: 'rejected', count: records.filter((record) => record.workflowStatus === 'rejected').length },
           ],
           profileCompleteness: { complete: 0, total: records.length, percentage: 0, criteria: ['an institution logo', 'at least one contact method (email or telephone)', 'a description', 'a region'] },
           regions: [],
@@ -284,6 +285,40 @@ describe('administrator interface', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Retry analytics' }))
     expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument()
     retry.unmount()
+  })
+
+  it('counts every non-published workflow status and refreshes the overview after publication changes', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    records = [
+      initialRecord(),
+      { ...initialRecord(), id: 2, slug: 'draft-entity', name: 'Draft Entity', workflowStatus: 'draft' },
+      { ...initialRecord(), id: 3, slug: 'pending-entity', name: 'Pending Entity', workflowStatus: 'pending_review' },
+      { ...initialRecord(), id: 4, slug: 'changes-entity', name: 'Changes Entity', workflowStatus: 'changes_requested' },
+      { ...initialRecord(), id: 5, slug: 'rejected-entity', name: 'Rejected Entity', workflowStatus: 'rejected' },
+    ]
+    const user = userEvent.setup()
+    renderAdmin('/admin')
+
+    const expectUnpublishedCount = async (count: number) => {
+      const card = (await screen.findByText('Unpublished Entities')).closest('section')
+      if (!card) throw new Error('Expected the unpublished-entities summary card.')
+      expect(card).toHaveTextContent(String(count))
+    }
+
+    await expectUnpublishedCount(4)
+    expect(screen.queryByText('Pending review')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Entities' }))
+    await user.click(await screen.findByRole('button', { name: 'Unpublish Example Entity' }))
+    expect(await screen.findByText('Entity unpublished.')).toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Overview' }))
+    await expectUnpublishedCount(5)
+
+    await user.click(screen.getByRole('link', { name: 'Entities' }))
+    await user.click(await screen.findByRole('button', { name: 'Publish Example Entity' }))
+    expect(await screen.findByText('Entity published.')).toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Overview' }))
+    await expectUnpublishedCount(4)
   })
 
   it.each([

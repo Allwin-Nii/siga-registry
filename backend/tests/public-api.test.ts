@@ -7,7 +7,7 @@ import type { PublicApiServices } from '../src/routes/public-api.routes.js'
 import { CategoryService } from '../src/services/category.service.js'
 import { PublicEstablishmentService } from '../src/services/public-establishment.service.js'
 import { hashSecret } from '../src/security/credentials.js'
-import type { DirectoryQuery, PublicEstablishment } from '../src/types/establishment.js'
+import type { DirectoryQuery, PublicDashboard, PublicEstablishment } from '../src/types/establishment.js'
 
 const servers: Server[] = []
 const publicSessionToken = 'public-session-token-for-tests'
@@ -27,6 +27,19 @@ const published: PublicEstablishment = {
   summary: 'Electricity distribution utility serving customers across southern Ghana.',
 }
 
+const dashboard: PublicDashboard = {
+  total: 4,
+  categoryCounts: { SOE: 2, JVC: 1, OSE: 1 },
+  recent: [{
+    id: published.id,
+    slug: published.slug,
+    name: published.name,
+    category: published.category,
+    publishedAt: new Date('2026-11-02T00:00:00.000Z'),
+    publishedAtSource: 'updatedAt',
+  }],
+}
+
 const defaultServices = (): PublicApiServices => ({
   authentication: {
     register: async () => { throw new Error('unused') },
@@ -43,6 +56,7 @@ const defaultServices = (): PublicApiServices => ({
     getDirectory: async () => ({ data: [published], page: 1, pageSize: 20, total: 1, totalPages: 1 }),
     getEntityOptions: async () => ({ data: [{ id: published.id, slug: published.slug, name: published.name, categoryCode: published.category.code }], page: 1, pageSize: 20, total: 1, totalPages: 1 }),
     getPublishedBySlug: async () => published,
+    getDashboard: async () => dashboard,
   },
 })
 
@@ -64,7 +78,7 @@ afterEach(async () => {
 describe('public API routes', () => {
   it('requires public authentication before exposing registry content', async () => {
     const services = defaultServices()
-    for (const path of ['/api/categories', '/api/establishments', `/api/establishments/${published.slug}`, '/api/establishments/options']) {
+    for (const path of ['/api/categories', '/api/dashboard', '/api/establishments', `/api/establishments/${published.slug}`, '/api/establishments/options']) {
       expect((await request(path, services, undefined, false)).status).toBe(401)
     }
   })
@@ -74,6 +88,19 @@ describe('public API routes', () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ data: [published.category] })
+  })
+
+  it('returns published-only dashboard totals, category counts, and recent entities to public users', async () => {
+    const response = await request('/api/dashboard', defaultServices())
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      data: {
+        total: 4,
+        categoryCounts: { SOE: 2, JVC: 1, OSE: 1 },
+        recent: [expect.objectContaining({ slug: published.slug, publishedAtSource: 'updatedAt' })],
+      },
+    })
   })
 
   it('passes normalized combined directory filters and pagination to the public service', async () => {

@@ -19,6 +19,10 @@ export const createPublicApiRouter = ({ categories, establishments, authenticati
     response.status(200).json({ data: await categories.listCategories() })
   })
 
+  router.get('/dashboard', requirePublicUser, async (_request, response) => {
+    response.status(200).json({ data: await establishments.getDashboard() })
+  })
+
   router.get('/establishments', requirePublicUser, async (request, response) => {
     const directory = await establishments.getDirectory(parseDirectoryQuery(request.query))
     response.status(200).json({
