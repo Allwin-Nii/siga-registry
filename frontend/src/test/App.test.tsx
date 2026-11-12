@@ -34,10 +34,21 @@ const dashboardData: PublicDashboard = {
   ],
 }
 
+const createDirectoryFixtures = (count: number): PublicEstablishment[] => [
+  ...establishments,
+  ...Array.from({ length: Math.max(0, count - establishments.length) }, (_, index) => ({
+    ...establishments[2]!,
+    id: `fixture-${index + 1}`,
+    slug: `sample-entity-${String(index + 1).padStart(2, '0')}`,
+    name: `Sample Entity ${String(index + 1).padStart(2, '0')}`,
+  })),
+]
+
 const fetchMock = vi.fn()
 const scrollTo = vi.fn()
 let directoryUnavailable = false
 let emptyDirectory = false
+let directoryEstablishments = establishments
 let publicSessionActive = false
 let dashboardUnavailable = false
 let emptyDashboard = false
@@ -77,7 +88,7 @@ const configurePublicApi = () => {
       const entity = url.searchParams.get('entity') ?? ''
       const page = Number(url.searchParams.get('page') ?? '1')
       const pageSize = Number(url.searchParams.get('pageSize') ?? '20')
-      const allOptions = establishments.filter((item) => item.name.toLocaleLowerCase().includes(search) && (!category || item.category.code === category) && (!entity || item.slug === entity))
+      const allOptions = directoryEstablishments.filter((item) => item.name.toLocaleLowerCase().includes(search) && (!category || item.category.code === category) && (!entity || item.slug === entity))
       return Promise.resolve(json({
         data: allOptions.slice((page - 1) * pageSize, page * pageSize).map(({ id, slug, name, category: itemCategory }) => ({ id, slug, name, categoryCode: itemCategory.code })),
         meta: { page, pageSize, total: allOptions.length, totalPages: Math.ceil(allOptions.length / pageSize) },
@@ -98,7 +109,7 @@ const configurePublicApi = () => {
       const category = url.searchParams.get('category')?.toLocaleUpperCase() ?? ''
       const entity = url.searchParams.get('entity') ?? ''
       const sort = url.searchParams.get('sort') === 'desc' ? 'desc' : 'asc'
-      const allResults = (emptyDirectory ? [] : establishments.filter((item) =>
+      const allResults = (emptyDirectory ? [] : directoryEstablishments.filter((item) =>
         item.name.toLocaleLowerCase().includes(search) && (!category || item.category.code === category) && (!entity || item.slug === entity),
       )).sort((left, right) => sort === 'asc' ? left.name.localeCompare(right.name) : right.name.localeCompare(left.name))
       const page = Number(url.searchParams.get('page') ?? '1')
@@ -119,6 +130,7 @@ function renderApp(entry = '/') {
 beforeEach(() => {
   directoryUnavailable = false
   emptyDirectory = false
+  directoryEstablishments = establishments
   dashboardUnavailable = false
   emptyDashboard = false
   publicSessionActive = true
@@ -209,6 +221,25 @@ describe('SIGA Registry public API experience', () => {
     renderApp('/login')
 
     expect(await screen.findByRole('heading', { name: 'SIGA Registry' })).toBeInTheDocument()
+    const header = screen.getByRole('banner')
+    expect(within(header).getByTestId('public-login-header-layout')).toHaveClass('grid', 'grid-cols-1', 'sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]')
+    expect(within(header).getByTestId('public-login-header-title')).toHaveClass('justify-self-center', 'sm:col-start-2', 'sm:row-start-1')
+    expect(within(header).getByRole('navigation', { name: 'Primary navigation' })).toHaveClass('justify-self-end', 'sm:col-start-3', 'sm:row-start-1')
+    expect(within(header).getByAltText('State Interests and Governance Authority (SIGA)')).toHaveAttribute('src', '/branding/siga-logo.png')
+    const loginCard = screen.getByTestId('public-login-card')
+    expect(within(loginCard).queryByRole('heading', { name: 'SIGA Registry' })).not.toBeInTheDocument()
+    expect(within(loginCard).queryByAltText('State Interests and Governance Authority (SIGA)')).not.toBeInTheDocument()
+    expect(screen.getAllByAltText('State Interests and Governance Authority (SIGA)')).toHaveLength(1)
+    const loginFooter = screen.getByTestId('public-login-footer')
+    expect(loginFooter).toHaveClass('mt-auto', 'border-slate-200', 'bg-white')
+    expect(within(loginFooter).getByText(`© ${new Date().getFullYear()} State Interests and Governance Authority. All rights reserved.`)).toBeInTheDocument()
+    expect(within(loginFooter).getByText('Created by SIGA IT')).toBeInTheDocument()
+    expect(within(loginFooter).queryByText('Official reference')).not.toBeInTheDocument()
+    expect(within(loginFooter).queryByRole('link', { name: /Visit the official SIGA website/ })).not.toBeInTheDocument()
+    expect(screen.getByTestId('public-login-footer-content')).toHaveClass('py-7', 'sm:flex-row', 'sm:justify-between')
+    expect(loginFooter.parentElement).toHaveClass('flex', 'min-h-screen', 'flex-col')
+    expect(screen.getByRole('main')).toHaveClass('flex', 'flex-1', 'flex-col')
+    expect(loginCard.closest('section')).toHaveClass('flex-1')
     const password = screen.getByLabelText('Password')
     expect(password).toHaveAttribute('type', 'password')
     expect(screen.queryByRole('link', { name: 'Create Account' })).not.toBeInTheDocument()
@@ -219,7 +250,8 @@ describe('SIGA Registry public API experience', () => {
     await user.type(password, 'a test-only public password')
     await user.click(screen.getByRole('button', { name: 'Sign In' }))
 
-    expect(await screen.findByRole('heading', { name: 'Specified Entities Registry' })).toBeInTheDocument()
+    expect(await screen.findByText('Total Entities')).toBeInTheDocument()
+    expect(screen.queryByTestId('dashboard-hero')).not.toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/public/auth/login'), expect.objectContaining({ method: 'POST', credentials: 'include' }))
   })
 
@@ -228,7 +260,8 @@ describe('SIGA Registry public API experience', () => {
     document.cookie = 'siga_public_csrf=test-public-csrf; Path=/'
     renderApp('/login')
 
-    expect(await screen.findByRole('heading', { name: 'Specified Entities Registry' })).toBeInTheDocument()
+    expect(await screen.findByText('Total Entities')).toBeInTheDocument()
+    expect(screen.queryByTestId('dashboard-hero')).not.toBeInTheDocument()
     expect(screen.queryByText('Sign in to your public account')).not.toBeInTheDocument()
     expect(screen.queryByText('You can also browse the Entities Directory without signing in.')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'My Account' })).not.toBeInTheDocument()
@@ -243,7 +276,7 @@ describe('SIGA Registry public API experience', () => {
     expect(screen.getByAltText('Electricity Company of Ghana institutional cover')).toHaveAttribute('src', 'https://ecg.example.test/cover.jpg')
     expect(screen.getByText(/Supervising ministry:/)).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/api/establishments?page=1&pageSize=4'),
+      expect.stringContaining('/api/establishments?page=1&pageSize=16'),
       expect.objectContaining({ credentials: 'include' }),
     )
   })
@@ -252,13 +285,31 @@ describe('SIGA Registry public API experience', () => {
     const user = userEvent.setup()
     renderApp('/dashboard')
 
-    expect(await screen.findByRole('heading', { name: 'Specified Entities Registry' })).toBeInTheDocument()
     expect(screen.queryByText('Public Dashboard')).not.toBeInTheDocument()
-    expect(screen.getByTestId('dashboard-hero-copy')).toHaveClass('border-l-2', 'border-teal-600')
+    expect(screen.queryByTestId('dashboard-hero')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Specified Entities Registry' })).not.toBeInTheDocument()
     expect(await screen.findByText('Total Entities')).toBeInTheDocument()
     expect(screen.getAllByText('State-Owned Enterprises')).not.toHaveLength(0)
     expect(screen.getAllByText('Joint Venture Companies')).not.toHaveLength(0)
     expect(screen.getAllByText('Other State Entities')).not.toHaveLength(0)
+    const summaryGrid = screen.getByTestId('dashboard-summary-grid')
+    expect(summaryGrid).toHaveClass('sm:grid-cols-2', 'lg:grid-cols-4')
+    expect(Array.from(summaryGrid.children).map((card) => card.querySelector('p')?.textContent)).toEqual([
+      'Total Entities',
+      'State-Owned Enterprises',
+      'Joint Venture Companies',
+      'Other State Entities',
+    ])
+    expect(Array.from(summaryGrid.children).map((card) => card.textContent)).toEqual([
+      expect.stringContaining('9'),
+      expect.stringContaining('5'),
+      expect.stringContaining('1'),
+      expect.stringContaining('3'),
+    ])
+    expect(screen.getByTestId('dashboard-detail-grid')).toHaveClass('lg:grid-cols-2')
+    expect(screen.getByTestId('category-chart-card')).toHaveClass('lg:px-6', 'lg:py-4')
+    expect(screen.getByTestId('category-donut')).toHaveClass('lg:max-w-44')
+    expect(screen.getByTestId('recent-entities-card')).toHaveClass('lg:px-6', 'lg:py-4')
     expect(screen.getByText('Zeta Public Services')).toBeInTheDocument()
     const overview = screen.getByRole('link', { name: 'Overview' })
     expect(overview).toHaveAttribute('href', '/dashboard')
@@ -292,16 +343,18 @@ describe('SIGA Registry public API experience', () => {
     expect(await screen.findByText('Total Entities')).toBeInTheDocument()
   })
 
-  it('renders the five toolbar controls in the required order and uses responsive two-column cards', async () => {
+  it('removes the directory banner and uses a responsive four-column entity grid', async () => {
     renderApp('/directory')
 
     await screen.findByTestId('directory-card-grid')
+    expect(screen.queryByText('Public directory', { exact: true })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Explore Specified Entities' })).not.toBeInTheDocument()
     const toolbar = screen.getByTestId('directory-toolbar')
     expect(Array.from(toolbar.querySelectorAll('[data-filter-control]')).map((control) => control.getAttribute('data-filter-control'))).toEqual([
       'search', 'categories', 'entities', 'sort', 'clear',
     ])
     expect(toolbar).toHaveClass('lg:flex-row', 'lg:flex-nowrap')
-    expect(screen.getByTestId('directory-card-grid')).toHaveClass('sm:grid-cols-2')
+    expect(screen.getByTestId('directory-card-grid')).toHaveClass('sm:grid-cols-2', 'lg:grid-cols-4')
   })
 
   it('filters entity options by category, selects a published entity, and resets an incompatible selection', async () => {
@@ -330,10 +383,10 @@ describe('SIGA Registry public API experience', () => {
     await user.selectOptions(screen.getByLabelText('Sort'), 'desc')
     await screen.findByRole('heading', { name: 'Zeta Public Services' })
     expect(within(screen.getAllByTestId('entity-card')[0]!).getByRole('heading')).toHaveTextContent('Zeta Public Services')
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('sort=desc&page=1&pageSize=4'), expect.any(Object))
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('sort=desc&page=1&pageSize=16'), expect.any(Object))
   })
 
-  it('clears every filter and restores the default four-card view', async () => {
+  it('clears every filter and restores the default matching entities', async () => {
     const user = userEvent.setup()
     renderApp('/directory')
     await screen.findByTestId('directory-card-grid')
@@ -346,37 +399,44 @@ describe('SIGA Registry public API experience', () => {
     expect(screen.getByLabelText('Search entities')).toHaveValue('')
     expect(screen.getByLabelText('Categories')).toHaveValue('')
     expect(screen.getByLabelText('Sort')).toHaveValue('asc')
-    expect(await screen.findAllByTestId('entity-card')).toHaveLength(4)
+    expect(await screen.findAllByTestId('entity-card')).toHaveLength(9)
   })
 
-  it('loads exactly four additional cards at a time without duplicates and hides View More at the end', async () => {
+  it('loads sixteen additional cards at a time without duplicates and hides View More at the end', async () => {
     const user = userEvent.setup()
+    directoryEstablishments = createDirectoryFixtures(33)
     renderApp('/directory')
-    expect(await screen.findAllByTestId('entity-card')).toHaveLength(4)
+    expect(await screen.findAllByTestId('entity-card')).toHaveLength(16)
+    expect(screen.getByLabelText('33 entities found')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'View More' }))
-    await screen.findByRole('heading', { name: 'Volta River Authority' })
+    await screen.findByRole('heading', { name: 'Sample Entity 24' })
     const afterFirstLoad = screen.getAllByTestId('entity-card')
-    expect(afterFirstLoad).toHaveLength(8)
-    expect(new Set(afterFirstLoad.map((card) => within(card).getByRole('heading').textContent)).size).toBe(8)
+    expect(afterFirstLoad).toHaveLength(32)
+    expect(new Set(afterFirstLoad.map((card) => within(card).getByRole('heading').textContent)).size).toBe(32)
 
     await user.click(screen.getByRole('button', { name: 'View More' }))
     await screen.findByText('Zeta Public Services')
-    expect(screen.getAllByTestId('entity-card')).toHaveLength(9)
+    expect(screen.getAllByTestId('entity-card')).toHaveLength(33)
     expect(screen.queryByRole('button', { name: 'View More' })).not.toBeInTheDocument()
   })
 
   it('resets visible cards after a filter change and handles empty results', async () => {
     const user = userEvent.setup()
+    directoryEstablishments = createDirectoryFixtures(33)
     renderApp('/directory')
     await screen.findAllByTestId('entity-card')
     await user.click(screen.getByRole('button', { name: 'View More' }))
-    await screen.findByText('Volta River Authority')
-    expect(screen.getAllByTestId('entity-card')).toHaveLength(8)
+    await screen.findByText('Sample Entity 24')
+    expect(screen.getAllByTestId('entity-card')).toHaveLength(32)
 
     await user.selectOptions(screen.getByLabelText('Categories'), 'SOE')
     await screen.findByLabelText('5 entities found')
-    expect(screen.getAllByTestId('entity-card')).toHaveLength(4)
+    expect(screen.getAllByTestId('entity-card')).toHaveLength(5)
+    expect(screen.queryByRole('button', { name: 'View More' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Clear Filters' }))
+    expect(await screen.findAllByTestId('entity-card')).toHaveLength(16)
     expect(screen.getByRole('button', { name: 'View More' })).toBeInTheDocument()
 
     await user.clear(screen.getByLabelText('Search entities'))
@@ -531,7 +591,7 @@ describe('SIGA Registry public API experience', () => {
     await screen.findByRole('heading', { name: 'Electricity Company of Ghana' })
     await user.click(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Entities' }))
 
-    expect(await screen.findByRole('heading', { name: 'Explore Specified Entities' })).toBeInTheDocument()
+    expect(await screen.findByLabelText('Search entities')).toBeInTheDocument()
   })
 
   it('uses the same public not-found page for unavailable detail routes', async () => {
@@ -544,7 +604,8 @@ describe('SIGA Registry public API experience', () => {
   it('redirects authenticated root visits to the dashboard', async () => {
     renderApp('/')
 
-    expect(await screen.findByRole('heading', { name: 'Specified Entities Registry' })).toBeInTheDocument()
+    expect(await screen.findByText('Total Entities')).toBeInTheDocument()
+    expect(screen.queryByTestId('dashboard-hero')).not.toBeInTheDocument()
   })
 
 })

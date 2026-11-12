@@ -49,13 +49,13 @@ function CategoryDonut({ dashboard }: { dashboard: PublicDashboard }) {
     return { ...item, count, length, offset, percentage: percent(count, dashboard.total) }
   })
 
-  return <figure aria-labelledby="category-chart-heading" aria-describedby="category-chart-description" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+  return <figure data-testid="category-chart-card" aria-labelledby="category-chart-heading" aria-describedby="category-chart-description" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:px-6 lg:py-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><p className="text-xs font-black tracking-[0.16em] text-teal-700 uppercase">Registry distribution</p><h2 id="category-chart-heading" className="mt-1 text-xl font-black tracking-tight text-navy-950">Entities by Category</h2></div>
       <span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-bold text-teal-800">Published only</span>
     </div>
-    <div className="mt-5 grid items-center gap-6 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-      <div className="relative mx-auto w-full max-w-56">
+    <div className="mt-5 grid items-center gap-6 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:mt-4 lg:gap-4">
+      <div data-testid="category-donut" className="relative mx-auto w-full max-w-56 lg:max-w-44">
         <svg viewBox="0 0 120 120" role="img" aria-labelledby="category-chart-title category-chart-description" className="h-auto w-full overflow-visible">
           <title id="category-chart-title">Published entities by category</title>
           <desc id="category-chart-description">{segments.map((item) => `${item.description}: ${item.count} entities, ${item.percentage} percent`).join('. ') || 'No published entities are available.'}</desc>
@@ -89,13 +89,13 @@ function CategoryDonut({ dashboard }: { dashboard: PublicDashboard }) {
           <text x="60" y="71" textAnchor="middle" className="fill-slate-500 text-[8px] font-bold">PUBLISHED</text>
         </svg>
       </div>
-      <div className="space-y-2" aria-label="Category legend">
-        {segments.map((item) => <button key={item.code} type="button" onClick={() => setSelectedCode(item.code)} aria-pressed={selectedCode === item.code} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition ${selectedCode === item.code ? 'border-teal-700 bg-teal-50' : 'border-transparent hover:border-slate-200 hover:bg-slate-50'}`}>
+      <div className="space-y-2 lg:space-y-1" aria-label="Category legend">
+        {segments.map((item) => <button key={item.code} type="button" onClick={() => setSelectedCode(item.code)} aria-pressed={selectedCode === item.code} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition lg:py-2 ${selectedCode === item.code ? 'border-teal-700 bg-teal-50' : 'border-transparent hover:border-slate-200 hover:bg-slate-50'}`}>
           <span className="flex min-w-0 items-center gap-3"><span className={`size-3 shrink-0 rounded-full ${item.color}`} aria-hidden="true" /><span className="min-w-0"><span className="block truncate text-sm font-bold text-navy-950">{item.label}</span><span className="block text-xs text-slate-500">{item.description}</span></span></span><span className="shrink-0 text-right"><span className="block text-sm font-black text-navy-950">{numberFormatter.format(item.count)}</span><span className="block text-xs text-slate-500">{item.percentage}%</span></span>
         </button>)}
       </div>
     </div>
-    <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600" aria-live="polite"><span className="font-bold text-navy-950">{selected?.label}:</span> {numberFormatter.format(dashboard.categoryCounts[selected?.code ?? 'SOE'])} published entities ({percent(dashboard.categoryCounts[selected?.code ?? 'SOE'], dashboard.total)}%).</p>
+    <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 lg:mt-3" aria-live="polite"><span className="font-bold text-navy-950">{selected?.label}:</span> {numberFormatter.format(dashboard.categoryCounts[selected?.code ?? 'SOE'])} published entities ({percent(dashboard.categoryCounts[selected?.code ?? 'SOE'], dashboard.total)}%).</p>
   </figure>
 }
 
@@ -116,17 +116,17 @@ function DashboardContent({ dashboard }: { dashboard: PublicDashboard }) {
 
   return <>
     <section className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div data-testid="dashboard-summary-grid" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map(({ label, value, icon: Icon, className, iconClassName }) => <article key={label} className={`rounded-2xl border p-5 shadow-sm ${className}`}>
           <div className="flex items-start justify-between gap-3"><p className="max-w-44 text-sm font-bold leading-5">{label}</p><span className={`grid size-10 shrink-0 place-items-center rounded-xl ${iconClassName}`}><Icon size={21} aria-hidden="true" /></span></div><p className="mt-5 text-3xl font-black tracking-tight">{numberFormatter.format(value)}</p><p className="mt-1 text-xs font-semibold opacity-70">Published records</p>
         </article>)}
       </div>
     </section>
-    <section className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
+    <section data-testid="dashboard-detail-grid" className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
       <CategoryDonut dashboard={dashboard} />
-      <section aria-labelledby="recent-entities-heading" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <section data-testid="recent-entities-card" aria-labelledby="recent-entities-heading" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:px-6 lg:py-4">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black tracking-[0.16em] text-teal-700 uppercase">Latest additions</p><h2 id="recent-entities-heading" className="mt-1 text-xl font-black tracking-tight text-navy-950">Recent Entities</h2></div><Link to="/directory" className="inline-flex items-center gap-1 text-sm font-bold text-teal-700 hover:text-teal-600">Browse all <ArrowRight size={16} aria-hidden="true" /></Link></div>
-        {dashboard.recent.length ? <ol className="mt-5 divide-y divide-slate-100">{dashboard.recent.map((entity) => <li key={entity.id} className="py-4 first:pt-0 last:pb-0"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><Link to={`/establishments/${encodeURIComponent(entity.slug)}`} className="font-bold text-navy-950 underline decoration-teal-700/35 underline-offset-4 hover:text-teal-700">{entity.name}</Link><p className="mt-1 text-xs text-slate-500">{timestampLabel(entity.publishedAtSource)} {formatDate(entity.publishedAt)}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700">{entity.category.code}</span></div></li>)}</ol> : <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center"><p className="font-bold text-navy-950">No published entities yet</p><p className="mt-1 text-sm text-slate-600">Recent published entities will appear here.</p></div>}
+        {dashboard.recent.length ? <ol className="mt-5 divide-y divide-slate-100 lg:mt-4">{dashboard.recent.map((entity) => <li key={entity.id} className="py-4 first:pt-0 last:pb-0 lg:py-3"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><Link to={`/establishments/${encodeURIComponent(entity.slug)}`} className="font-bold text-navy-950 underline decoration-teal-700/35 underline-offset-4 hover:text-teal-700">{entity.name}</Link><p className="mt-1 text-xs text-slate-500">{timestampLabel(entity.publishedAtSource)} {formatDate(entity.publishedAt)}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700">{entity.category.code}</span></div></li>)}</ol> : <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center"><p className="font-bold text-navy-950">No published entities yet</p><p className="mt-1 text-sm text-slate-600">Recent published entities will appear here.</p></div>}
       </section>
     </section>
     <section className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
@@ -142,17 +142,6 @@ export function PublicDashboardPage() {
   ))
 
   return <>
-    <section data-testid="dashboard-hero" className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-      <div className="relative overflow-hidden rounded-3xl bg-navy-950 text-white shadow-sm">
-        <div aria-hidden="true" className="absolute inset-0 bg-linear-to-r from-navy-950 via-navy-950/95 to-transparent" />
-        <div className="relative px-6 py-10 sm:px-10 sm:py-12">
-          <div data-testid="dashboard-hero-copy" className="max-w-3xl border-l-2 border-teal-600 pl-5 sm:pl-6">
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Specified Entities Registry</h1>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-slate-300">A public register of SIGA&apos;s State-Owned Enterprises (SOE), Joint Venture Companies (JVC) and Other State Entities (OSE).</p>
-          </div>
-        </div>
-      </div>
-    </section>
     {dashboard.loading && <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8" role="status"><div className="rounded-2xl border border-slate-200 bg-white p-8 text-center"><p className="font-bold text-navy-950">Loading the public dashboard…</p><p className="mt-2 text-sm text-slate-600">Retrieving published registry information.</p></div></section>}
     {dashboard.error && <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"><div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center" role="alert"><h2 className="font-black text-navy-950">The public dashboard is unavailable right now</h2><p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-700">{dashboard.error.message}</p><button type="button" onClick={dashboard.retry} className="mt-5 rounded-lg bg-navy-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-navy-800">Retry dashboard</button></div></section>}
     {dashboard.data && <DashboardContent dashboard={dashboard.data} />}

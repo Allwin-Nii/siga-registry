@@ -1,13 +1,17 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { SigaLogo } from './SigaLogo'
 import { usePublicAuth } from '../state/usePublicAuth'
+
+const currentYear = new Date().getFullYear()
 
 const navItem = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-3 py-2 text-sm font-bold transition ${isActive ? 'bg-teal-100 text-teal-800' : 'text-slate-600 hover:bg-slate-100 hover:text-navy-900'}`
 
 export function SiteLayout() {
   const { status, logout } = usePublicAuth()
+  const location = useLocation()
   const navigate = useNavigate()
+  const isPublicLogin = location.pathname === '/login'
 
   const signOut = async () => {
     try {
@@ -20,7 +24,7 @@ export function SiteLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-sand-50">
+    <div className={isPublicLogin ? 'flex min-h-screen flex-col bg-sand-50' : 'min-h-screen bg-sand-50'}>
       <a className="sr-only focus:not-sr-only focus:absolute focus:left-5 focus:top-5 focus:z-50 focus:rounded focus:bg-white focus:px-4 focus:py-2" href="#main-content">Skip to content</a>
       <header className="border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="border-b border-navy-900 bg-navy-950 text-slate-200">
@@ -28,21 +32,20 @@ export function SiteLayout() {
             <span className="font-semibold tracking-wide">Specified Entities information service</span>
           </div>
         </div>
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-          <NavLink to="/" className="min-w-0" aria-label="SIGA Registry home"><SigaLogo className="h-10 w-auto max-w-full sm:h-12" /></NavLink>
-          <nav aria-label="Primary navigation" className="order-3 flex w-full items-center gap-1 overflow-x-auto pb-1 sm:order-2 sm:w-auto sm:pb-0">
+        <div data-testid={isPublicLogin ? 'public-login-header-layout' : undefined} className={isPublicLogin ? 'mx-auto grid max-w-7xl grid-cols-1 items-center gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:px-6 lg:px-8' : 'mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8'}>
+          <NavLink to="/" className={isPublicLogin ? 'min-w-0 justify-self-start sm:col-start-1 sm:row-start-1' : 'min-w-0'} aria-label="SIGA Registry home"><SigaLogo className="h-10 w-auto max-w-full sm:h-12" /></NavLink>
+          {isPublicLogin && <h1 data-testid="public-login-header-title" className="justify-self-center whitespace-nowrap text-center text-xl font-black tracking-tight text-navy-950 sm:col-start-2 sm:row-start-1 sm:text-2xl">SIGA Registry</h1>}
+          <nav aria-label="Primary navigation" className={isPublicLogin ? 'justify-self-end sm:col-start-3 sm:row-start-1' : 'order-3 flex w-full items-center gap-1 overflow-x-auto pb-1 sm:order-2 sm:w-auto sm:pb-0'}>
             {status === 'authenticated'
               ? <><NavLink to="/dashboard" className={navItem}>Overview</NavLink><NavLink to="/directory" className={navItem}>Entities</NavLink><button type="button" onClick={() => void signOut()} className="rounded-md px-3 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-100 hover:text-navy-900">Sign Out</button></>
               : <NavLink to="/login" className={navItem}>Sign In</NavLink>}
           </nav>
         </div>
       </header>
-      <main id="main-content"><Outlet /></main>
-      <footer className="mt-16 border-t border-navy-900 bg-navy-950 text-slate-300">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <p className="text-sm font-bold text-white">Official reference</p><a className="mt-3 inline-flex text-sm font-semibold text-teal-100 underline decoration-teal-600 underline-offset-4 hover:text-white" href="https://siga.gov.gh/" target="_blank" rel="noopener noreferrer">Visit the official SIGA website <span aria-hidden="true">↗</span></a>
-        </div>
-      </footer>
+      <main id="main-content" className={isPublicLogin ? 'flex flex-1 flex-col' : undefined}><Outlet /></main>
+      {isPublicLogin
+        ? <footer data-testid="public-login-footer" className="mt-auto border-t border-slate-200 bg-white text-slate-600"><div data-testid="public-login-footer-content" className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-7 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><p>© {currentYear} State Interests and Governance Authority. All rights reserved.</p><p>Created by SIGA IT</p></div></footer>
+        : <footer className="mt-16 border-t border-navy-900 bg-navy-950 text-slate-300"><div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8"><p className="text-sm font-bold text-white">Official reference</p><a className="mt-3 inline-flex text-sm font-semibold text-teal-100 underline decoration-teal-600 underline-offset-4 hover:text-white" href="https://siga.gov.gh/" target="_blank" rel="noopener noreferrer">Visit the official SIGA website <span aria-hidden="true">↗</span></a></div></footer>}
     </div>
   )
 }
