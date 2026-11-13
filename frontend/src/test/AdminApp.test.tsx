@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,6 +21,13 @@ type RecordFixture = {
   submittedAt: string | null
   reviewedAt: string | null
   reviewFeedback: string | null
+  logoUrl?: string | null
+  coverImageUrl?: string | null
+  physicalAddress?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  gpsLocationUrl?: string | null
+  management?: Array<{ id: number, fullName: string, position: string, officialEmail: string | null, officialPhone: string | null, displayOrder: number }>
 }
 
 const category = { id: 1, code: 'SOE', name: 'SOE', description: 'State-Owned Enterprise' }
@@ -65,7 +72,7 @@ const configureAdministratorApi = () => {
     const url = new URL(input)
     const method = init?.method ?? 'GET'
     const path = url.pathname
-    const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}
+    const body = typeof init?.body === 'string' ? JSON.parse(init.body) as Record<string, unknown> : {}
 
     if (path === '/api/admin/auth/session') {
       return sessionActive
@@ -89,6 +96,29 @@ const configureAdministratorApi = () => {
     }
     if (!path.startsWith('/api/admin/')) return Promise.resolve(json({ error: { code: 'NOT_FOUND' } }, 404))
     if (!sessionActive) return unauthorized()
+    if (path === '/api/admin/imports/template' && method === 'GET') {
+      return Promise.resolve(new Response(new Blob(['template'], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), { status: 200 }))
+    }
+    if (path === '/api/admin/imports/preview' && method === 'POST') {
+      if (csrfHeader(init) !== 'test-csrf-token') return Promise.resolve(json({ error: { code: 'FORBIDDEN', message: 'A valid CSRF token is required.' } }, 403))
+      return Promise.resolve(json({ data: {
+        id: 'preview-id', expiresAt: '2026-10-23T00:00:00.000Z', total: 2, valid: 1, invalid: 1, duplicates: 0,
+        rows: [
+          { rowNumber: 2, status: 'valid', values: { 'Entity Name': 'Imported Entity', Category: 'SOE', 'Website URL': 'https://example.gov.gh', 'Email Address': 'info@example.gov.gh', 'Contact Number': '+233 302 000 000' }, errors: {} },
+          { rowNumber: 3, status: 'invalid', values: { 'Entity Name': 'Invalid Entity', Category: 'BAD' }, errors: { category: 'Use one of the configured category codes: SOE, JVC, or OSE.' } },
+        ],
+      } }))
+    }
+    if (path === '/api/admin/imports/preview-id/confirm' && method === 'POST') {
+      if (csrfHeader(init) !== 'test-csrf-token') return Promise.resolve(json({ error: { code: 'FORBIDDEN', message: 'A valid CSRF token is required.' } }, 403))
+      return Promise.resolve(json({ data: { imported: [{ rowNumber: 2, id: 12, name: 'Imported Entity' }], skippedDuplicates: [], rejected: [{ rowNumber: 3, name: 'Invalid Entity', errors: { category: 'Use one of the configured category codes: SOE, JVC, or OSE.' } }] } }))
+    }
+    if (path === '/api/admin/imports/preview-id/error-report' && method === 'GET') return Promise.resolve(new Response('Row,Errors\r\n3,"category: invalid"', { status: 200, headers: { 'Content-Type': 'text/csv' } }))
+    const uploadMatch = path.match(/^\/api\/admin\/uploads\/(logo|cover)$/)
+    if (uploadMatch && method === 'POST') {
+      if (csrfHeader(init) !== 'test-csrf-token') return Promise.resolve(json({ error: { code: 'FORBIDDEN', message: 'A valid CSRF token is required.' } }, 403))
+      return Promise.resolve(json({ data: { url: `/uploads/${uploadMatch[1]}-12345678-1234-1234-1234-123456789abc.png`, mimeType: 'image/png' } }, 201))
+    }
     if (path === '/api/admin/analytics' && method === 'GET') {
       if (forceAnalyticsError) return Promise.resolve(json({ error: { code: 'DATABASE_UNAVAILABLE', message: 'The service is temporarily unavailable.' } }, 503))
       const analytics = () => json({
@@ -131,7 +161,7 @@ const configureAdministratorApi = () => {
     }
     if (path === '/api/admin/establishments' && method === 'POST') {
       if (csrfHeader(init) !== 'test-csrf-token') return Promise.resolve(json({ error: { code: 'FORBIDDEN', message: 'A valid CSRF token is required.' } }, 403))
-      const record: RecordFixture = { ...initialRecord(), id: 2, slug: 'new-entity', name: String(body.name), website: String(body.website || '') || null, email: String(body.email || '') || null, contactNumber: String(body.contactNumber || '') || null, summary: String(body.summary), category: categories.find((item) => item.code === body.categoryId) ?? category, workflowStatus: 'draft' }
+      const record: RecordFixture = { ...initialRecord(), id: 2, slug: 'new-entity', name: String(body.name), website: String(body.website || '') || null, logoUrl: String(body.logoUrl || '') || null, coverImageUrl: String(body.coverImageUrl || '') || null, email: String(body.email || '') || null, contactNumber: String(body.contactNumber || '') || null, summary: String(body.summary), physicalAddress: String(body.physicalAddress || '') || null, latitude: body.latitude ? Number(body.latitude) : null, longitude: body.longitude ? Number(body.longitude) : null, gpsLocationUrl: String(body.gpsLocationUrl || '') || null, management: [], category: categories.find((item) => item.code === body.categoryId) ?? category, workflowStatus: 'draft' }
       records.push(record)
       return Promise.resolve(json({ data: record }, 201))
     }
@@ -155,6 +185,12 @@ const configureAdministratorApi = () => {
       record.contactNumber = String(body.contactNumber || '') || null
       record.summary = String(body.summary)
       record.category = categories.find((item) => item.code === body.categoryId) ?? category
+      if (Array.isArray(body.management)) {
+        record.management = body.management.map((member, index) => {
+          const input = member as Record<string, unknown>
+          return { id: 100 + index, fullName: String(input.fullName), position: String(input.position), officialEmail: String(input.officialEmail || '') || null, officialPhone: String(input.officialPhone || '') || null, displayOrder: index }
+        })
+      }
       return Promise.resolve(json({ data: record }))
     }
     if (path === '/api/admin/categories' && method === 'GET') return Promise.resolve(json({ data: categories }))
@@ -168,7 +204,7 @@ function renderAdmin(entry: string) {
 
 const signIn = async () => {
   const user = userEvent.setup()
-  await user.type(screen.getByLabelText('Email address'), 'admin@example.test')
+  await user.type(screen.getByLabelText('Email Address'), 'admin@example.test')
   await user.type(screen.getByLabelText('Password'), 'correct-password')
   await user.click(screen.getByRole('button', { name: 'Sign in' }))
   return user
@@ -196,10 +232,31 @@ afterEach(() => {
 })
 
 describe('administrator interface', () => {
-  it('allows administrators to navigate directly to the login page', async () => {
+  it('renders a centered institutional administrator login page', async () => {
     renderAdmin('/admin/login')
 
-    expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Administrator Sign In' })).toBeInTheDocument()
+    const header = screen.getByRole('banner')
+    expect(screen.getByTestId('admin-login-header-layout')).toHaveClass('grid', 'grid-cols-1', 'sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]')
+    expect(within(header).getByTestId('admin-login-header-title')).toHaveClass('justify-self-center', 'sm:col-start-2', 'sm:row-start-1')
+    expect(within(header).getByText('Administrator')).toHaveClass('justify-self-end', 'sm:col-start-3', 'sm:row-start-1')
+    expect(within(header).getByAltText('State Interests and Governance Authority (SIGA)')).toHaveAttribute('src', '/branding/siga-logo.png')
+    expect(screen.getAllByAltText('State Interests and Governance Authority (SIGA)')).toHaveLength(1)
+    const card = screen.getByTestId('admin-login-card')
+    expect(card).toHaveClass('rounded-2xl', 'border', 'bg-white', 'p-6', 'shadow-sm', 'sm:p-8')
+    expect(screen.queryByText('Administrator access')).not.toBeInTheDocument()
+    expect(screen.queryByText('Manage the registry securely.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Specified Entities information directory')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Welcome back' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Back to public directory/ })).not.toBeInTheDocument()
+    const footer = screen.getByTestId('admin-login-footer')
+    expect(footer).toHaveClass('mt-auto', 'border-slate-200', 'bg-white')
+    expect(within(footer).getByText(`© ${new Date().getFullYear()} State Interests and Governance Authority. All rights reserved.`)).toBeInTheDocument()
+    expect(within(footer).getByText('Created by SIGA IT')).toBeInTheDocument()
+    expect(screen.getByTestId('admin-login-footer-content')).toHaveClass('py-7', 'sm:flex-row', 'sm:justify-between')
+    expect(screen.getByTestId('admin-login-page')).toHaveClass('flex', 'min-h-screen', 'flex-col')
+    expect(screen.getByRole('main')).toHaveClass('flex', 'flex-1', 'flex-col')
+    expect(card.closest('section')).toHaveClass('flex-1')
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
   })
 
@@ -221,7 +278,7 @@ describe('administrator interface', () => {
   it('shows invalid-credential errors without establishing a session', async () => {
     const user = userEvent.setup()
     renderAdmin('/admin/login')
-    await user.type(screen.getByLabelText('Email address'), 'admin@example.test')
+    await user.type(screen.getByLabelText('Email Address'), 'admin@example.test')
     await user.type(screen.getByLabelText('Password'), 'wrong-password')
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
@@ -245,7 +302,7 @@ describe('administrator interface', () => {
     overview.unmount()
 
     renderAdmin('/admin/establishments/1/edit')
-    expect(await screen.findByRole('heading', { name: 'Edit Entity' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Manage Entity' })).toBeInTheDocument()
     expect(await screen.findByDisplayValue('Example Entity')).toBeInTheDocument()
     expect(screen.getByText('No management members have been added.')).toBeInTheDocument()
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
@@ -264,6 +321,26 @@ describe('administrator interface', () => {
     releaseAnalyticsResponse?.()
     expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Entities by category' })).toBeInTheDocument()
+    const summaryGrid = screen.getByTestId('admin-summary-grid')
+    expect(summaryGrid).toHaveClass('sm:grid-cols-2', 'lg:grid-cols-4')
+    expect(Array.from(summaryGrid.children).map((card) => card.querySelector('p')?.textContent)).toEqual([
+      'Total Entities',
+      'Published',
+      'Drafts',
+      'Unpublished Entities',
+    ])
+    expect(Array.from(summaryGrid.children).map((card) => card.textContent)).toEqual([
+      expect.stringContaining('1'),
+      expect.stringContaining('1'),
+      expect.stringContaining('0'),
+      expect.stringContaining('0'),
+    ])
+    const analyticsGrid = screen.getByTestId('admin-analytics-grid')
+    expect(analyticsGrid).toHaveClass('lg:grid-cols-2')
+    expect(analyticsGrid.children).toHaveLength(2)
+    expect(screen.getByTestId('admin-category-chart')).toHaveClass('h-full', 'min-w-0', 'lg:p-3')
+    expect(screen.getByTestId('admin-category-donut')).toHaveClass('lg:h-24', 'lg:w-24')
+    expect(screen.getByTestId('admin-regional-chart')).toHaveClass('h-full', 'min-w-0', 'lg:p-3')
     expect(screen.getAllByText('SOE — State-Owned Enterprises')).toHaveLength(2)
     expect(screen.getByText('entities')).toBeInTheDocument()
     expect(screen.getAllByText('SOE — State-Owned Enterprises')[1]?.parentElement).toHaveTextContent('1 entity (100%)')
@@ -329,7 +406,7 @@ describe('administrator interface', () => {
   ])('redirects unauthenticated visitors from %s to administrator login', async (path) => {
     renderAdmin(path)
 
-    expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Administrator Sign In' })).toBeInTheDocument()
   })
 
   it('logs out through the protected endpoint and clears administrator access', async () => {
@@ -340,50 +417,218 @@ describe('administrator interface', () => {
     await screen.findByRole('heading', { name: 'Overview' })
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
 
-    expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Administrator Sign In' })).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3001/api/admin/auth/logout',
       expect.objectContaining({ headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }) }),
     )
   })
 
-  it('creates and edits entities with the CSRF header', async () => {
+  it('uploads images and creates an entity with manual location details without Google Maps', async () => {
     sessionActive = true
     document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
     const user = userEvent.setup()
     renderAdmin('/admin/establishments/new')
     await screen.findByRole('heading', { name: 'Add Entity' })
-    expect(screen.getByLabelText('Institution Logo URL')).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Institution Cover Image URL'), 'https://new.example.test/cover.jpg')
+    expect(screen.getByLabelText('Institution logo')).toHaveAttribute('type', 'file')
+    expect(screen.getByLabelText('Institution cover image')).toHaveAttribute('type', 'file')
+    expect(screen.queryByLabelText('Institution Logo URL')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add Member' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Location information' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Region')).toBeInTheDocument()
+    expect(screen.getByLabelText('City')).toBeInTheDocument()
+    expect(screen.getByLabelText('Physical address')).toBeInTheDocument()
+    expect(screen.queryByTestId('google-maps-fallback')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('google-map-location-picker')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Find a location')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Latitude (optional)')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Longitude (optional)')).not.toBeInTheDocument()
+    expect(document.getElementById('siga-google-maps-script')).not.toBeInTheDocument()
+    await user.upload(screen.getByLabelText('Institution logo'), new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'oversized-logo.png', { type: 'image/png' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Choose an image no larger than 5 MB.')
+    await user.upload(screen.getByLabelText('Institution logo'), new File(['png'], 'logo.png', { type: 'image/png' }))
+    expect(await screen.findByAltText('Institution logo preview')).toBeInTheDocument()
+    await user.upload(screen.getByLabelText('Institution logo'), new File(['webp'], 'replacement.webp', { type: 'image/webp' }))
+    expect(await screen.findByAltText('Institution logo preview')).toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'Remove image' })[0])
+    expect(screen.queryByAltText('Institution logo preview')).not.toBeInTheDocument()
+    await user.upload(screen.getByLabelText('Institution logo'), new File(['png'], 'final-logo.png', { type: 'image/png' }))
+    expect(await screen.findByAltText('Institution logo preview')).toBeInTheDocument()
+    await user.upload(screen.getByLabelText('Institution cover image'), new File(['png'], 'cover.png', { type: 'image/png' }))
+    expect(await screen.findByAltText('Institution cover preview')).toBeInTheDocument()
     await user.type(screen.getByLabelText(/^Name/), 'New Entity')
     await user.type(screen.getByLabelText('Website URL'), 'https://new.example.test')
     await user.selectOptions(screen.getByLabelText(/^Category/), 'SOE')
     await user.type(screen.getByLabelText('Email'), 'new@example.test')
     await user.type(screen.getByLabelText('Contact Number'), '+233 302 000 002')
     await user.type(screen.getByLabelText(/^Brief Description/), 'A new entity created through the administrator API.')
-    expect(screen.queryByLabelText('Latitude')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Longitude')).not.toBeInTheDocument()
-    await user.type(screen.getByLabelText('GPS Location (Google Maps Link)'), 'https://www.google.com/maps/place/New+Entity')
-    await user.click(screen.getByRole('button', { name: 'Add member' }))
-    await user.type(screen.getByLabelText(/^Full name/), 'Ama Mensah')
-    await user.type(screen.getByLabelText(/^Position/), 'Managing Director')
+    await user.type(screen.getByLabelText('Region'), 'Greater Accra')
+    await user.type(screen.getByLabelText('City'), 'Accra')
+    await user.type(screen.getByLabelText('Physical address'), '1 Registry Road, Accra')
     await user.click(screen.getByRole('button', { name: 'Create Entity' }))
 
-    expect(await screen.findByRole('heading', { name: 'Edit Entity' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Manage Entity' })).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/establishments'), expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }) }))
     const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/api/admin/establishments') && (init as RequestInit).method === 'POST')
     if (!createCall) throw new Error('Expected the administrator create request.')
     expect(JSON.parse(String((createCall[1] as RequestInit).body))).toMatchObject({
-      coverImageUrl: 'https://new.example.test/cover.jpg',
-      gpsLocationUrl: 'https://www.google.com/maps/place/New+Entity',
-      management: [{ fullName: 'Ama Mensah', position: 'Managing Director' }],
+      logoUrl: '/uploads/logo-12345678-1234-1234-1234-123456789abc.png',
+      coverImageUrl: '/uploads/cover-12345678-1234-1234-1234-123456789abc.png',
+      region: 'Greater Accra',
+      city: 'Accra',
+      physicalAddress: '1 Registry Road, Accra',
+      latitude: '',
+      longitude: '',
+      gpsLocationUrl: '',
+      management: [],
     })
+    expect(screen.getByTestId('google-maps-fallback')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Add Member' }))
+    await user.type(screen.getByLabelText(/^Full name/), 'Ama Mensah')
+    await user.type(screen.getByLabelText(/^Position/), 'Managing Director')
     const name = screen.getByLabelText(/^Name/)
     await user.clear(name)
     await user.type(name, 'Updated Entity')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     expect(await screen.findByText('Entity changes saved.')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/establishments/2'), expect.objectContaining({ method: 'PATCH' }))
+    const updateCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/api/admin/establishments/2') && (init as RequestInit).method === 'PATCH')
+    if (!updateCall) throw new Error('Expected the administrator update request.')
+    expect(JSON.parse(String((updateCall[1] as RequestInit).body))).toMatchObject({ management: [{ fullName: 'Ama Mensah', position: 'Managing Director' }] })
+  })
+
+  it('opens the administrator bulk import workflow, previews rows, and requires confirmation before import', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    const user = userEvent.setup()
+    renderAdmin('/admin/establishments')
+    const importLink = await screen.findByRole('link', { name: 'Import' })
+    expect(importLink).toHaveAttribute('href', '/admin/establishments/import')
+    expect(importLink).toHaveClass('rounded-lg', 'border', 'border-navy-950')
+    expect(screen.queryByRole('link', { name: 'Bulk Import' })).not.toBeInTheDocument()
+    await user.click(importLink)
+
+    expect(await screen.findByRole('heading', { name: 'Bulk Entity Import' })).toBeInTheDocument()
+    expect(screen.queryByText(/Review up to 500 new entities from an Excel or CSV file/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Supported formats: .xlsx and .csv/)).not.toBeInTheDocument()
+    await user.upload(screen.getByLabelText('Entity spreadsheet'), new File(['Entity Name,Category\nImported Entity,SOE'], 'entities.csv', { type: 'text/csv' }))
+    await user.click(screen.getByRole('button', { name: 'Preview Import' }))
+    expect(await screen.findByRole('heading', { name: 'Import preview' })).toBeInTheDocument()
+    expect(screen.getByText('2 total')).toBeInTheDocument()
+    expect(screen.getByText('1 valid')).toBeInTheDocument()
+    expect(screen.getByText('1 invalid')).toBeInTheDocument()
+    expect(screen.getByText('Imported Entity')).toBeInTheDocument()
+    expect(screen.getByText('Invalid Entity')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Contact Number' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Brief Description' })).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/imports/preview'), expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf-token' }) }))
+
+    await user.click(screen.getByRole('button', { name: 'Import Valid Entities' }))
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Import 1 valid entity record as drafts')
+    await user.click(screen.getByRole('button', { name: 'Confirm import 1 valid entities' }))
+    expect(await screen.findByRole('heading', { name: 'Import summary' })).toBeInTheDocument()
+    expect(screen.getByText('Imported Entity')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Manage entity' })).toHaveAttribute('href', '/admin/establishments/12/edit')
+  })
+
+  it('combines administrator entity name, category, and publication filters', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    records = [
+      { ...initialRecord(), id: 1, name: 'Alpha Registry', workflowStatus: 'published' },
+      { ...initialRecord(), id: 2, name: 'Alpha Draft', category: { id: 2, code: 'JVC', name: 'JVC', description: 'Joint Venture Company' }, workflowStatus: 'draft' },
+      { ...initialRecord(), id: 3, name: 'Beta Published', category: { id: 3, code: 'OSE', name: 'OSE', description: 'Other State Entity' }, workflowStatus: 'published' },
+      { ...initialRecord(), id: 4, name: 'Mines Joint Venture', category: { id: 2, code: 'JVC', name: 'JVC', description: 'Joint Venture Company' }, workflowStatus: 'published' },
+      { ...initialRecord(), id: 5, name: 'Other Draft', category: { id: 3, code: 'OSE', name: 'OSE', description: 'Other State Entity' }, workflowStatus: 'draft' },
+    ]
+    const user = userEvent.setup()
+    renderAdmin('/admin/establishments')
+
+    const search = await screen.findByRole('searchbox', { name: 'Search entities' })
+    const categoryFilter = screen.getByLabelText('Category')
+    expect(search).toHaveAttribute('placeholder', 'Search entities by name...')
+    expect(categoryFilter).toHaveValue('')
+
+    await user.selectOptions(categoryFilter, 'SOE')
+    expect(await screen.findByRole('link', { name: 'Edit Alpha Registry' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit Alpha Draft' })).not.toBeInTheDocument()
+
+    await user.selectOptions(categoryFilter, 'JVC')
+    expect(await screen.findByRole('link', { name: 'Edit Alpha Draft' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edit Mines Joint Venture' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit Alpha Registry' })).not.toBeInTheDocument()
+
+    await user.selectOptions(categoryFilter, 'OSE')
+    expect(await screen.findByRole('link', { name: 'Edit Beta Published' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edit Other Draft' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit Mines Joint Venture' })).not.toBeInTheDocument()
+
+    await user.selectOptions(categoryFilter, '')
+    await user.type(search, '  aLpHa  ')
+    expect(await screen.findByRole('link', { name: 'Edit Alpha Registry' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edit Alpha Draft' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit Beta Published' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Published' }))
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Edit Alpha Draft' })).not.toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'Edit Alpha Registry' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Unpublished' }))
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Edit Alpha Registry' })).not.toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'Edit Alpha Draft' })).toBeInTheDocument()
+
+    await user.clear(search)
+    expect(await screen.findByRole('link', { name: 'Edit Alpha Draft' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit Alpha Registry' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edit Other Draft' })).toBeInTheDocument()
+
+    await user.selectOptions(categoryFilter, 'JVC')
+    await user.type(search, ' mines ')
+    expect(await screen.findByRole('heading', { name: 'No matching entities' })).toBeInTheDocument()
+    expect(screen.getByText('No entities match your search or selected filters.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'All records' }))
+    expect(await screen.findByRole('link', { name: 'Edit Mines Joint Venture' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit Alpha Draft' })).not.toBeInTheDocument()
+
+    await user.clear(search)
+    expect(await screen.findByRole('link', { name: 'Edit Alpha Draft' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edit Mines Joint Venture' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit Alpha Registry' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Published' }))
+    expect(await screen.findByRole('link', { name: 'Edit Mines Joint Venture' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit Alpha Draft' })).not.toBeInTheDocument()
+
+    await user.type(search, 'mines')
+    await user.selectOptions(categoryFilter, 'OSE')
+    expect(await screen.findByRole('heading', { name: 'No matching entities' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Clear search and category filters' }))
+    expect(search).toHaveValue('')
+    expect(categoryFilter).toHaveValue('')
+    expect(await screen.findByRole('link', { name: 'Edit Alpha Registry' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edit Beta Published' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edit Mines Joint Venture' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit Alpha Draft' })).not.toBeInTheDocument()
+  })
+
+  it('finds an administrator entity beyond the currently displayed page', async () => {
+    sessionActive = true
+    document.cookie = 'siga_admin_csrf=test-csrf-token; Path=/'
+    records = Array.from({ length: 101 }, (_, index) => ({
+      ...initialRecord(),
+      id: index + 1,
+      slug: `entity-${index + 1}`,
+      name: index === 100 ? 'Faraway Entity' : `Entity ${index + 1}`,
+      workflowStatus: 'draft' as const,
+    }))
+    const user = userEvent.setup()
+    renderAdmin('/admin/establishments')
+
+    await user.type(await screen.findByRole('searchbox', { name: 'Search entities' }), 'faraway')
+    expect(await screen.findByRole('link', { name: 'Edit Faraway Entity' })).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('page=2&pageSize=100'))).toBe(true)
   })
 
   it('requires an explicit deletion confirmation and can publish or unpublish a record', async () => {

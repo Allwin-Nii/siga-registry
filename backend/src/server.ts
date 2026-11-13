@@ -13,6 +13,8 @@ import { AdministratorEstablishmentService } from './services/administrator-esta
 import { AdministratorAnalyticsService } from './services/administrator-analytics.service.js'
 import { AdministratorAnalyticsRepository } from './repositories/administrator-analytics.repository.js'
 import { PublicEstablishmentService } from './services/public-establishment.service.js'
+import { ImageUploadService } from './services/image-upload.service.js'
+import { BulkImportService } from './services/bulk-import.service.js'
 
 const startServer = () => {
   const config = loadEnvironment()
@@ -23,8 +25,10 @@ const startServer = () => {
   const publicUserRepository = new PublicUserRepository(pool)
   const transactions = createTransactionRunner(pool)
   const publicAuthentication = new PublicAuthService(publicUserRepository, transactions, config.security.sessionTtlHours)
+  const administratorEstablishments = new AdministratorEstablishmentService(establishmentRepository, categoryRepository, transactions)
   const app = createApp({
     corsOrigin: config.corsOrigin,
+    uploadsDirectory: config.uploads.directory,
     checkDatabase: () => checkDatabaseConnection(pool),
     publicApi: {
       categories: new CategoryService(categoryRepository),
@@ -34,8 +38,10 @@ const startServer = () => {
     administratorApi: {
       authentication: new AdministratorAuthService(administratorRepository, transactions, config.security.sessionTtlHours),
       analytics: new AdministratorAnalyticsService(new AdministratorAnalyticsRepository(pool)),
-      establishments: new AdministratorEstablishmentService(establishmentRepository, categoryRepository, transactions),
+      establishments: administratorEstablishments,
       categories: categoryRepository,
+      uploads: new ImageUploadService(config.uploads.directory),
+      imports: new BulkImportService(establishmentRepository, categoryRepository, administratorEstablishments),
       allowedOrigin: config.corsOrigin,
       cookieSettings: {
         secure: config.security.secureCookies,

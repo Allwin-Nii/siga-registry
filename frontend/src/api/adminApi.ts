@@ -73,7 +73,39 @@ export type AdministratorEstablishmentInput = {
   physicalAddress: string
   gpsAddress: string
   gpsLocationUrl: string
+  latitude?: string
+  longitude?: string
   management: AdministratorManagementMemberInput[]
+}
+
+export type AdministratorImageUploadKind = 'logo' | 'cover'
+
+export type AdministratorImageUpload = {
+  url: string
+  mimeType: 'image/png' | 'image/jpeg' | 'image/webp'
+}
+
+export type AdministratorBulkImportRow = {
+  rowNumber: number
+  values: Record<string, string>
+  status: 'valid' | 'invalid' | 'duplicate'
+  errors: Record<string, string>
+}
+
+export type AdministratorBulkImportPreview = {
+  id: string
+  expiresAt: string
+  total: number
+  valid: number
+  invalid: number
+  duplicates: number
+  rows: AdministratorBulkImportRow[]
+}
+
+export type AdministratorBulkImportSummary = {
+  imported: Array<{ rowNumber: number, id: number, name: string }>
+  skippedDuplicates: Array<{ rowNumber: number, name: string, message: string }>
+  rejected: Array<{ rowNumber: number, name: string, errors: Record<string, string> }>
 }
 
 export type AdministratorPagination = {
@@ -290,6 +322,49 @@ export const setAdministratorPublication = async (
 export const deleteAdministratorEstablishment = async (id: number, csrfToken: string) => {
   await mutation<undefined>('DELETE', `/admin/establishments/${id}`, csrfToken)
 }
+
+export const uploadAdministratorImage = async (
+  kind: AdministratorImageUploadKind,
+  image: File,
+  csrfToken: string,
+): Promise<AdministratorImageUpload> => {
+  if (!csrfToken) {
+    throw new AdministratorApiError('Your administrator security token is unavailable. Please sign in again.', 403, 'FORBIDDEN')
+  }
+  const body = new FormData()
+  body.append('image', image)
+  return requireData<AdministratorImageUpload>(await request<DataEnvelope<AdministratorImageUpload>>(`/admin/uploads/${kind}`, {
+    method: 'POST',
+    headers: {
+      'X-CSRF-Token': csrfToken,
+    },
+    body,
+  }))
+}
+
+const download = async (path: string): Promise<Blob> => {
+  const response = await fetch(`${publicApiBaseUrl}${path}`, { credentials: 'include' })
+  if (!response.ok) throw apiErrorFrom(response, await readJson(response))
+  return response.blob()
+}
+
+export const downloadAdministratorImportTemplate = () => download('/admin/imports/template')
+
+export const previewAdministratorBulkImport = async (file: File, csrfToken: string): Promise<AdministratorBulkImportPreview> => {
+  if (!csrfToken) return Promise.reject(new AdministratorApiError('Your administrator security token is unavailable. Please sign in again.', 403, 'FORBIDDEN'))
+  const body = new FormData()
+  body.append('file', file)
+  return requireData<AdministratorBulkImportPreview>(await request<DataEnvelope<AdministratorBulkImportPreview>>('/admin/imports/preview', {
+    method: 'POST',
+    headers: { 'X-CSRF-Token': csrfToken },
+    body,
+  }))
+}
+
+export const confirmAdministratorBulkImport = async (id: string, csrfToken: string): Promise<AdministratorBulkImportSummary> =>
+  requireData<AdministratorBulkImportSummary>(await mutation<DataEnvelope<AdministratorBulkImportSummary>>('POST', `/admin/imports/${encodeURIComponent(id)}/confirm`, csrfToken))
+
+export const downloadAdministratorImportErrorReport = (id: string) => download(`/admin/imports/${encodeURIComponent(id)}/error-report`)
 
 export const listAdministratorCategories = async (options?: AdministratorApiRequestOptions): Promise<AdministratorCategory[]> =>
   requireData<AdministratorCategory[]>(await request<DataEnvelope<AdministratorCategory[]>>('/admin/categories', {}, options))

@@ -1,10 +1,14 @@
 import { once } from 'node:events'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import type { Server } from 'node:http'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../src/app.js'
 import { DatabaseUnavailableError } from '../src/lib/errors.js'
 import type { AdministratorApiServices } from '../src/routes/administrator-api.routes.js'
 import { hashSecret } from '../src/security/credentials.js'
+import { ImageUploadService } from '../src/services/image-upload.service.js'
 import type { PublicApiServices } from '../src/routes/public-api.routes.js'
 import type { EstablishmentRecord, PublicEstablishment } from '../src/types/establishment.js'
 
@@ -98,6 +102,25 @@ const mutationHeaders = (csrf = csrfToken) => ({
   Cookie: `siga_admin_session=${sessionToken}; siga_admin_csrf=${csrfToken}`,
   'Content-Type': 'application/json',
 })
+const multipartMutationHeaders = (csrf = csrfToken) => ({
+  Origin: origin,
+  'X-CSRF-Token': csrf,
+  Cookie: `siga_admin_session=${sessionToken}; siga_admin_csrf=${csrfToken}`,
+})
+
+const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00])
+
+const imageForm = () => {
+  const form = new FormData()
+  form.append('image', new Blob([png], { type: 'image/png' }), 'logo.png')
+  return form
+}
+
+const importForm = () => {
+  const form = new FormData()
+  form.append('file', new Blob([Buffer.from('Entity Name,Category\nExample Entity,SOE')], { type: 'text/csv' }), 'entities.csv')
+  return form
+}
 
 afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))))
@@ -166,6 +189,65 @@ describe('administrator-only API', () => {
     })
     expect(wrongCsrf.status).toBe(403)
     expect(admin.establishments.create).not.toHaveBeenCalled()
+  })
+
+  it('accepts only authenticated administrator image uploads and passes the exact image payload to storage', async () => {
+    const admin = administratorApi()
+    const upload = { upload: vi.fn(async () => ({ url: '/uploads/logo-12345678-1234-1234-1234-123456789abc.png', mimeType: 'image/png' as const })) }
+    admin.uploads = upload
+    const anonymous = await request('/api/admin/uploads/logo', admin, { method: 'POST', headers: { Origin: origin }, body: imageForm() })
+    const uploaded = await request('/api/admin/uploads/logo', admin, { method: 'POST', headers: multipartMutationHeaders(), body: imageForm() })
+    const invalidKind = await request('/api/admin/uploads/other', admin, { method: 'POST', headers: multipartMutationHeaders(), body: imageForm() })
+
+    expect(anonymous.status).toBe(401)
+    expect(uploaded.status).toBe(201)
+    expect(await uploaded.json()).toEqual({ data: { url: '/uploads/logo-12345678-1234-1234-1234-123456789abc.png', mimeType: 'image/png' } })
+    expect(upload.upload).toHaveBeenCalledWith('logo', expect.any(Buffer), 'image/png')
+    expect(invalidKind.status).toBe(400)
+  })
+
+  it('stores validated image bytes outside MySQL with a safe generated path', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'siga-registry-upload-'))
+    try {
+      const uploads = new ImageUploadService(directory)
+      const stored = await uploads.upload('logo', png, 'image/png')
+      const filename = stored.url.split('/').at(-1)
+
+      expect(stored.url).toMatch(/^\/uploads\/logo-[0-9a-f-]+\.png$/)
+      expect(filename).toBeTruthy()
+      await expect(readFile(join(directory, filename!))).resolves.toEqual(png)
+      await expect(uploads.upload('logo', Buffer.from('not-an-image'), 'image/png')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+      await expect(uploads.upload('logo', png, 'image/jpeg')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+      await expect(uploads.upload('logo', Buffer.alloc(5 * 1024 * 1024 + 1), 'image/png')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('restricts bulk import template, preview, confirmation, and error-report operations to administrators', async () => {
+    const admin = administratorApi()
+    const imports = {
+      createTemplate: vi.fn(async () => Buffer.from('template')),
+      preview: vi.fn(async () => ({ id: 'preview-id', expiresAt: '2026-10-21T08:00:00.000Z', total: 1, valid: 1, invalid: 0, duplicates: 0, rows: [] })),
+      confirm: vi.fn(async () => ({ imported: [{ rowNumber: 2, id: 2, name: 'Example Entity' }], skippedDuplicates: [], rejected: [] })),
+      errorReport: vi.fn(() => Buffer.from('Row,Errors\r\n2,"name: invalid"')),
+    }
+    admin.imports = imports
+    const anonymous = await request('/api/admin/imports/template', admin)
+    const template = await request('/api/admin/imports/template', admin, { headers: { Cookie: `siga_admin_session=${sessionToken}` } })
+    const preview = await request('/api/admin/imports/preview', admin, { method: 'POST', headers: multipartMutationHeaders(), body: importForm() })
+    const confirmation = await request('/api/admin/imports/preview-id/confirm', admin, { method: 'POST', headers: mutationHeaders() })
+    const report = await request('/api/admin/imports/preview-id/error-report', admin, { headers: { Cookie: `siga_admin_session=${sessionToken}` } })
+
+    expect(anonymous.status).toBe(401)
+    expect(template.status).toBe(200)
+    expect(template.headers.get('content-type')).toContain('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    expect(preview.status).toBe(200)
+    expect(imports.preview).toHaveBeenCalledWith(expect.objectContaining({ filename: 'entities.csv', contentType: 'text/csv', body: expect.any(Buffer) }))
+    expect(confirmation.status).toBe(200)
+    expect(imports.confirm).toHaveBeenCalledWith('preview-id')
+    expect(report.status).toBe(200)
+    await expect(report.text()).resolves.toContain('Row,Errors')
   })
 
   it('allows an authenticated administrator to manage establishments while categories remain read-only', async () => {

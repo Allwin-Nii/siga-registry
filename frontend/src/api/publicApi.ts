@@ -143,6 +143,17 @@ const configuredApiBaseUrl = import.meta.env.VITE_PUBLIC_API_BASE_URL?.trim()
 
 export const publicApiBaseUrl = (configuredApiBaseUrl || defaultApiBaseUrl).replace(/\/+$/, '')
 
+/** Resolve server-stored upload paths against the API origin while preserving legacy external image URLs. */
+export const publicMediaUrl = (reference: string | undefined | null) => {
+  if (!reference) return undefined
+  if (!reference.startsWith('/')) return reference
+  try {
+    return new URL(reference, new URL(publicApiBaseUrl, window.location.origin).origin).toString()
+  } catch {
+    return reference
+  }
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 
 const readJson = async (response: Response): Promise<unknown> => {

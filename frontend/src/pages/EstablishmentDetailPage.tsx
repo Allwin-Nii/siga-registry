@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getPublicEstablishment, PublicApiError, type PublicEstablishment } from '../api/publicApi'
+import { getPublicEstablishment, PublicApiError, publicMediaUrl, type PublicEstablishment } from '../api/publicApi'
 import { usePublicApiResource } from '../api/usePublicApiResource'
 
 const NotProvided = () => <span className="text-slate-500">Not provided</span>
@@ -47,6 +47,8 @@ export function EstablishmentDetailPage() {
   }
 
   const profile = establishment.data
+  const coverImageUrl = publicMediaUrl(profile.coverImageUrl)
+  const logoImageUrl = publicMediaUrl(profile.logoUrl)
 
   const telephoneHref = `tel:${profile.contactNumber.replace(/[^+\d]/g, '')}`
   const logoUnavailable = !profile.logoUrl || failedLogoUrl === profile.logoUrl
@@ -56,7 +58,7 @@ export function EstablishmentDetailPage() {
 
   return <div data-testid="profile-page" className="relative isolate min-h-full overflow-hidden">
     {!coverUnavailable
-      ? <img data-testid="profile-page-cover-background" src={profile.coverImageUrl} alt="" aria-hidden="true" onError={() => setFailedCoverUrl(profile.coverImageUrl)} className="pointer-events-none absolute inset-0 z-0 h-full w-full scale-110 object-cover opacity-100 blur-sm" />
+      ? <img data-testid="profile-page-cover-background" src={coverImageUrl} alt="" aria-hidden="true" onError={() => setFailedCoverUrl(profile.coverImageUrl ?? undefined)} className="pointer-events-none absolute inset-0 z-0 h-full w-full scale-110 object-cover opacity-100 blur-sm" />
       : <div data-testid="profile-page-cover-fallback" className="pointer-events-none absolute inset-0 z-0 bg-linear-to-br from-navy-900 via-navy-800 to-teal-800" aria-hidden="true" />}
     <div data-testid="profile-page-cover-overlay" className="pointer-events-none absolute inset-0 z-10 bg-navy-950/45" aria-hidden="true" />
     <div className="relative z-20 mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
@@ -71,7 +73,7 @@ export function EstablishmentDetailPage() {
       <header className="grid gap-6 bg-navy-950/70 px-6 py-8 text-white backdrop-blur-sm sm:grid-cols-[auto_1fr] sm:items-center sm:px-8 sm:py-10 lg:px-10">
         <div className="flex size-24 shrink-0 items-center justify-center rounded-2xl bg-white p-3 shadow-lg shadow-navy-950/20 sm:size-28" data-testid="institution-logo">
           {profile.logoUrl && !logoUnavailable
-            ? <img src={profile.logoUrl} alt={`${profile.name} logo`} onError={() => setFailedLogoUrl(profile.logoUrl)} className="max-h-full max-w-full object-contain" />
+            ? <img src={logoImageUrl} alt={`${profile.name} logo`} onError={() => setFailedLogoUrl(profile.logoUrl ?? undefined)} className="max-h-full max-w-full object-contain" />
             : <InstitutionFallbackIcon />}
         </div>
         <div className="min-w-0"><p className="text-sm font-black tracking-[0.16em] text-teal-100 uppercase">Specified entity profile</p><h1 className="mt-2 text-3xl font-black tracking-tight text-balance sm:text-4xl lg:text-5xl">{profile.name}</h1><p className="mt-4 inline-flex max-w-full rounded-full bg-white/10 px-3 py-1.5 text-sm font-bold text-teal-50 ring-1 ring-inset ring-white/15">{profile.category.code} — {profile.category.description}</p>{profile.supervisingMinistry && <p className="mt-3 text-sm font-semibold text-teal-50">Supervising ministry: {profile.supervisingMinistry}</p>}</div>

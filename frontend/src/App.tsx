@@ -8,6 +8,7 @@ import { PublicRoute } from './components/PublicRoute'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { AdminEstablishmentFormPage } from './pages/AdminEstablishmentFormPage'
 import { AdminEstablishmentListPage } from './pages/AdminEstablishmentListPage'
+import { AdminBulkImportPage } from './pages/AdminBulkImportPage'
 import { AdminLoginPage } from './pages/AdminLoginPage'
 import { DirectoryPage } from './pages/DirectoryPage'
 import { EstablishmentDetailPage } from './pages/EstablishmentDetailPage'
@@ -39,6 +40,7 @@ function App() {
         <Route element={<AdminLayout />}>
           <Route path="admin" element={<AdminDashboardPage />} />
           <Route path="admin/establishments" element={<AdminEstablishmentListPage />} />
+          <Route path="admin/establishments/import" element={<AdminBulkImportPage />} />
           <Route path="admin/establishments/new" element={<AdminEstablishmentFormPage mode="create" />} />
           <Route path="admin/establishments/:recordId/edit" element={<AdminEstablishmentFormPage mode="edit" />} />
         </Route>

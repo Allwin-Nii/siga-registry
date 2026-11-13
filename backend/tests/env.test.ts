@@ -29,6 +29,9 @@ describe('environment configuration', () => {
         sessionTtlHours: 8,
         secureCookies: false,
       },
+      uploads: {
+        directory: expect.stringMatching(/uploads$/),
+      },
     })
   })
 

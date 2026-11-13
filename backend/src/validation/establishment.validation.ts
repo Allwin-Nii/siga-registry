@@ -17,6 +17,10 @@ const validUrl = (value: string, allowedProtocols: readonly string[]) => {
   }
 }
 
+const validUploadedImagePath = (value: string) => /^\/uploads\/(?:logo|cover)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:png|jpg|webp)$/i.test(value)
+
+const validImageReference = (value: string) => validUploadedImagePath(value) || validUrl(value, ['https:'])
+
 const validGoogleMapsUrl = (value: string) => {
   try {
     const url = new URL(value)
@@ -99,11 +103,11 @@ export const validateEstablishmentInput = (input: Partial<EstablishmentInput>): 
   if (website && (website.length > 2048 || !validUrl(website, ['http:', 'https:']))) {
     errors.website = 'Enter a valid HTTP or HTTPS website URL of at most 2048 characters.'
   }
-  if (logoUrl && (logoUrl.length > 2048 || !validUrl(logoUrl, ['https:']))) {
-    errors.logoUrl = 'Enter a valid HTTPS logo URL of at most 2048 characters.'
+  if (logoUrl && (logoUrl.length > 2048 || !validImageReference(logoUrl))) {
+    errors.logoUrl = 'Upload a valid logo image.'
   }
-  if (coverImageUrl && (coverImageUrl.length > 2048 || !validUrl(coverImageUrl, ['https:']))) {
-    errors.coverImageUrl = 'Enter a valid HTTPS cover image URL of at most 2048 characters.'
+  if (coverImageUrl && (coverImageUrl.length > 2048 || !validImageReference(coverImageUrl))) {
+    errors.coverImageUrl = 'Upload a valid cover image.'
   }
   if (supervisingMinistry && supervisingMinistry.length > 160) {
     errors.supervisingMinistry = 'Enter a supervising ministry of at most 160 characters.'

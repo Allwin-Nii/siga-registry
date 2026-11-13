@@ -1,9 +1,11 @@
-import { Router } from 'express'
+import { raw, Router } from 'express'
 import { createOriginProtection, createRequireAdministrator, requireCsrfProtection } from '../middleware/administrator-security.js'
 import type { AdministratorAuthenticationService } from '../services/administrator-auth.service.js'
 import type { AdministratorEstablishmentService } from '../services/administrator-establishment.service.js'
 import type { AdministratorAnalyticsService } from '../services/administrator-analytics.service.js'
 import type { CategoryReader } from '../repositories/category.repository.js'
+import { isImageUploadKind, readMultipartFile, readMultipartImage, type ImageUploadService } from '../services/image-upload.service.js'
+import type { BulkImportService } from '../services/bulk-import.service.js'
 import { clearSessionCookies, createSessionCookies, readCookies, sessionCookieName, type SessionCookieSettings } from '../security/cookies.js'
 import { ValidationError } from '../lib/errors.js'
 import { workflowStatusCodes, type WorkflowStatusCode } from '../types/workflow.js'
@@ -13,6 +15,8 @@ export type AdministratorApiServices = {
   analytics: Pick<AdministratorAnalyticsService, 'getDashboard'>
   establishments: Pick<AdministratorEstablishmentService, 'list' | 'create' | 'update' | 'setPublication' | 'delete'>
   categories: Pick<CategoryReader, 'list'>
+  uploads?: Pick<ImageUploadService, 'upload'>
+  imports?: Pick<BulkImportService, 'createTemplate' | 'preview' | 'confirm' | 'errorReport'>
   allowedOrigin: string
   cookieSettings: SessionCookieSettings
 }
@@ -62,6 +66,8 @@ export const createAdministratorApiRouter = ({
   analytics,
   establishments,
   categories,
+  uploads,
+  imports,
   allowedOrigin,
   cookieSettings,
 }: AdministratorApiServices) => {
@@ -126,6 +132,47 @@ export const createAdministratorApiRouter = ({
     await establishments.delete(parseIdentifier(request.params.id, 'id'))
     response.status(204).end()
   })
+
+  if (uploads) {
+    router.post('/admin/uploads/:kind', ...protectMutation, raw({ type: () => true, limit: '11mb' }), async (request, response) => {
+      const kind = request.params.kind
+      if (typeof kind !== 'string' || !isImageUploadKind(kind)) {
+        throw new ValidationError('Invalid upload type.', { kind: 'Upload either a logo or a cover image.' })
+      }
+      const imageFile = readMultipartImage(request.body, request.get('content-type'))
+      const image = await uploads.upload(kind, imageFile.body, imageFile.contentType)
+      response.status(201).json({ data: image })
+    })
+  }
+
+  if (imports) {
+    router.get('/admin/imports/template', requireAdministrator, async (_request, response) => {
+      const template = await imports.createTemplate()
+      response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      response.setHeader('Content-Disposition', 'attachment; filename="siga-registry-entity-import-template.xlsx"')
+      response.status(200).send(template)
+    })
+
+    router.post('/admin/imports/preview', ...protectMutation, raw({ type: () => true, limit: '6mb' }), async (request, response) => {
+      const file = readMultipartFile(request.body, request.get('content-type'), 'file')
+      const preview = await imports.preview(file)
+      response.status(200).json({ data: preview })
+    })
+
+    router.post('/admin/imports/:id/confirm', ...protectMutation, async (request, response) => {
+      const id = request.params.id
+      if (typeof id !== 'string') throw new ValidationError('Invalid import preview.')
+      response.status(200).json({ data: await imports.confirm(id) })
+    })
+
+    router.get('/admin/imports/:id/error-report', requireAdministrator, (request, response) => {
+      const id = request.params.id
+      if (typeof id !== 'string') throw new ValidationError('Invalid import preview.')
+      response.setHeader('Content-Type', 'text/csv; charset=utf-8')
+      response.setHeader('Content-Disposition', 'attachment; filename="siga-registry-import-errors.csv"')
+      response.status(200).send(imports.errorReport(id))
+    })
+  }
 
   router.get('/admin/categories', requireAdministrator, async (_request, response) => {
     response.status(200).json({ data: await categories.list() })

@@ -8,6 +8,11 @@ export const notFoundHandler: RequestHandler = (_request, response) => {
 export const errorHandler: ErrorRequestHandler = (error, _request, response, next) => {
   if (response.headersSent) return next(error)
 
+  if (typeof error === 'object' && error !== null && 'type' in error && error.type === 'entity.too.large') {
+    response.status(413).json({ error: { code: 'PAYLOAD_TOO_LARGE', message: 'The uploaded file is too large. Choose a file no larger than 5 MB.' } })
+    return
+  }
+
   if (error instanceof ApiError) {
     const body: { error: { code: string; message: string; details?: Record<string, string> } } = {
       error: { code: error.code, message: error.message },

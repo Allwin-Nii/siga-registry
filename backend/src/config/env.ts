@@ -1,3 +1,5 @@
+import { resolve } from 'node:path'
+
 export type DatabaseConfig = {
   host: string
   port: number
@@ -5,7 +7,6 @@ export type DatabaseConfig = {
   password: string
   database: 'siga_registry'
 }
-
 export type AppConfig = {
   port: number
   corsOrigin: string
@@ -14,6 +15,9 @@ export type AppConfig = {
     environment: 'development' | 'test' | 'production'
     sessionTtlHours: number
     secureCookies: boolean
+  }
+  uploads: {
+    directory: string
   }
 }
 
@@ -72,6 +76,12 @@ const parseCorsOrigin = (value: string) => {
   }
 }
 
+const parseUploadsDirectory = (value: string | undefined) => {
+  const directory = value?.trim() || 'uploads'
+  if (!directory) throw new EnvironmentValidationError('UPLOADS_DIRECTORY must not be empty.')
+  return resolve(directory)
+}
+
 export const loadEnvironment = (environment: Environment = process.env): AppConfig => {
   const databaseName = required(environment, 'DATABASE_NAME')
   if (databaseName !== 'siga_registry') {
@@ -93,6 +103,9 @@ export const loadEnvironment = (environment: Environment = process.env): AppConf
       environment: nodeEnvironment,
       sessionTtlHours: parseSessionTtlHours(environment.SESSION_TTL_HOURS),
       secureCookies: parseBoolean(environment.COOKIE_SECURE, 'COOKIE_SECURE', nodeEnvironment === 'production'),
+    },
+    uploads: {
+      directory: parseUploadsDirectory(environment.UPLOADS_DIRECTORY),
     },
   }
 }

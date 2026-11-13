@@ -12,13 +12,17 @@ export type CreateAppOptions = {
   publicApi?: PublicApiServices
   administratorApi?: AdministratorApiServices
   publicAuthApi?: PublicAuthApiServices
+  uploadsDirectory?: string
 }
 
-export const createApp = ({ corsOrigin, checkDatabase, publicApi, administratorApi, publicAuthApi }: CreateAppOptions) => {
+export const createApp = ({ corsOrigin, checkDatabase, publicApi, administratorApi, publicAuthApi, uploadsDirectory }: CreateAppOptions) => {
   const app = express()
 
   app.use(cors({ origin: corsOrigin, credentials: true }))
   app.use(express.json({ limit: '1mb' }))
+  if (uploadsDirectory) {
+    app.use('/uploads', express.static(uploadsDirectory, { fallthrough: false, index: false, maxAge: '1d' }))
+  }
   app.use('/api', createHealthRouter(checkDatabase))
   if (publicApi) app.use('/api', createPublicApiRouter(publicApi))
   if (administratorApi) app.use('/api', createAdministratorApiRouter(administratorApi))

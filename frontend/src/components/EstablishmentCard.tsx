@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
-import type { PublicEstablishment } from '../api/publicApi'
+import { publicMediaUrl, type PublicEstablishment } from '../api/publicApi'
 
 export function EstablishmentCard({ establishment }: { establishment: PublicEstablishment }) {
   const [imageFailed, setImageFailed] = useState(false)
-  const coverImage = establishment.coverImageUrl
+  const coverImage = publicMediaUrl(establishment.coverImageUrl)
 
   return (
     <article data-testid="entity-card" className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-teal-700/35 hover:shadow-md">
